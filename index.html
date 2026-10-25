@@ -1,0 +1,1767 @@
+<title>Fork Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a two-pane workbench — source on the left, the simulated machine (tree, terminal, process table) on the right; stacks on phones. */
+:root {
+  --bg: #e9edf1;
+  --panel: #ffffff;
+  --panel-2: #f4f6f9;
+  --ink: #16202b;
+  --muted: #5a6779;
+  --line: #d3dae3;
+  --accent: #1f5bd8;
+  --accent-ink: #ffffff;
+  --code-bg: #0f1722;
+  --code-ink: #dbe4ef;
+  --code-muted: #6e7d91;
+  --danger: #c2341d;
+  --danger-bg: #fbe9e5;
+  --warn: #9a6400;
+  --font-ui: "Archivo", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --p0: #1f5bd8; --p1: #d0451b; --p2: #13856b; --p3: #8a3fd1; --p4: #b07800; --p5: #c2266f; --p6: #2a7fa3; --p7: #5f7a12;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1218; --panel: #141b23; --panel-2: #1a232d; --ink: #e2e8ef; --muted: #8c99aa; --line: #263241;
+    --accent: #6f9bff; --accent-ink: #08101c; --code-bg: #0a0f15; --code-ink: #dbe4ef; --code-muted: #5f6d80;
+    --danger: #ff7a62; --danger-bg: #3a1a14; --warn: #f0b44c;
+    --p0: #6f9bff; --p1: #ff8a5c; --p2: #3fcf9f; --p3: #b98cff; --p4: #f0bf4a; --p5: #ff6fae; --p6: #5cc2ea; --p7: #a9cc4a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1218; --panel: #141b23; --panel-2: #1a232d; --ink: #e2e8ef; --muted: #8c99aa; --line: #263241;
+  --accent: #6f9bff; --accent-ink: #08101c; --code-bg: #0a0f15; --code-ink: #dbe4ef; --code-muted: #5f6d80;
+  --danger: #ff7a62; --danger-bg: #3a1a14; --warn: #f0b44c;
+  --p0: #6f9bff; --p1: #ff8a5c; --p2: #3fcf9f; --p3: #b98cff; --p4: #f0bf4a; --p5: #ff6fae; --p6: #5cc2ea; --p7: #a9cc4a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1440px; margin: 0 auto; display: grid; gap: 18px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; }
+h1 { margin: 0; font-size: 30px; line-height: 1.05; font-weight: 800; font-stretch: 78%; letter-spacing: -0.01em; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.tag { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.course { font-family: var(--font-code); font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 18px; align-items: start; }
+@media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.panel > .hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.hd h2 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-stretch: 85%; }
+.hd .hint { font-size: 12px; color: var(--muted); }
+.bd { padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.left { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (max-width: 980px) { .left { position: static; } }
+label.fl { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.03em; }
+select, input[type=text], textarea.small {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 100%; min-width: 0;
+}
+select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea.small { font-family: var(--font-code); font-size: 13px; resize: vertical; min-height: 38px; }
+.editor { display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--code-bg); border-radius: 8px; overflow: hidden; height: min(62vh, 560px); min-height: 260px; }
+.gutter { font-family: var(--font-code); font-size: 13px; line-height: 1.55; color: var(--code-muted); text-align: right; padding: 12px 8px 12px 12px; user-select: none; overflow: hidden; white-space: pre; }
+.gutter .bad { color: var(--danger); font-weight: 600; }
+#code { font-family: var(--font-code); font-size: 13px; line-height: 1.55; color: var(--code-ink); background: transparent; border: 0; resize: none; padding: 12px 12px 12px 6px; white-space: pre; overflow: auto; tab-size: 4; width: 100%; height: 100%; outline: none; caret-color: var(--p4); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.row > * { flex: 1 1 160px; min-width: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel-2); }
+.seg button { font: inherit; font-size: 13px; padding: 7px 11px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.run { font: inherit; font-weight: 700; font-size: 15px; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 11px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.run kbd { font-family: var(--font-code); font-size: 11px; opacity: 0.8; border: 1px solid currentColor; border-radius: 4px; padding: 0 5px; }
+.run:hover { filter: brightness(1.08); }
+.note { font-size: 12.5px; color: var(--muted); }
+.right { display: grid; gap: 18px; min-width: 0; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.stat { padding: 12px 14px; border-right: 1px solid var(--line); min-width: 0; }
+.stat:last-child { border-right: 0; }
+.stat b { display: block; font-size: 28px; font-weight: 800; font-stretch: 80%; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { font-size: 12px; color: var(--muted); }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat:nth-child(2) { border-right: 0; } .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+.err { background: var(--danger-bg); color: var(--danger); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+.err code { font-family: var(--font-code); font-size: 13px; }
+.treebox { overflow-x: auto; padding: 8px 6px 4px; }
+.treebox svg { display: block; margin: 0 auto; }
+.tnode { cursor: pointer; }
+.tnode circle { stroke-width: 2.5; }
+.tnode text { font-family: var(--font-code); }
+.tnode.dim { opacity: 0.25; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); padding: 0 14px 12px; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--muted); vertical-align: middle; margin-right: 6px; }
+.legend i.dash { border-top-style: dashed; }
+.term { background: var(--code-bg); color: var(--code-ink); font-family: var(--font-code); font-size: 13px; line-height: 1.55; border-radius: 8px; padding: 12px 14px; overflow-x: auto; white-space: pre; min-height: 60px; max-height: 420px; overflow-y: auto; }
+.term .ch { border-bottom: 2px solid; }
+.term .note-ev { color: var(--code-muted); font-style: italic; }
+.term .err-ev { color: #ff8f7a; }
+.term .dim { opacity: 0.22; }
+.counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--font-code); font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: pre; }
+.chip b { color: var(--accent); font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--panel-2); }
+td.mono, td .mono { font-family: var(--font-code); font-variant-numeric: tabular-nums; }
+td .out { font-family: var(--font-code); white-space: pre; font-size: 12.5px; }
+tr.sel td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+tr { cursor: pointer; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: -1px; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; border-radius: 4px; padding: 1px 6px; margin: 0 4px 2px 0; border: 1px solid currentColor; }
+.badge.z { color: var(--warn); } .badge.o { color: var(--p5); } .badge.e { color: var(--danger); } .badge.x { color: var(--p2); }
+.tabs { display: flex; gap: 4px; }
+.tabs button { font: inherit; font-size: 13px; font-weight: 600; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.foot { font-size: 12.5px; color: var(--muted); max-width: 90ch; }
+.foot b { color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) { .tnode circle { transition: opacity .15s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="course">CSE 3544 · Processes in UNIX</div>
+      <h1>Fork <span>Lab</span></h1>
+      <p class="tag">Paste a C program that uses fork(). Every process is simulated, so you see the process tree, what each process prints, and the full output.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel left" aria-label="Program">
+      <div class="hd"><h2>Program</h2><span class="hint">Tab indents · Ctrl/⌘ + Enter runs</span></div>
+      <div class="bd">
+        <label class="fl" for="ex">Load an Assignment 06 example
+          <select id="ex"></select>
+        </label>
+        <div class="editor">
+          <div class="gutter" id="gutter" aria-hidden="true">1</div>
+          <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="C source code"></textarea>
+        </div>
+        <div class="row">
+          <label class="fl" for="args">Command-line arguments
+            <input type="text" id="args" placeholder="e.g. 7">
+          </label>
+          <label class="fl" for="stdin">Keyboard input (stdin)
+            <textarea class="small" id="stdin" rows="1" placeholder="values for scanf"></textarea>
+          </label>
+        </div>
+        <div class="row" style="align-items:center">
+          <div style="flex:1 1 220px">
+            <div class="fl" style="margin-bottom:4px">Output goes to</div>
+            <div class="seg" role="group" aria-label="Output buffering">
+              <button type="button" id="bm-line" aria-pressed="true">Terminal</button>
+              <button type="button" id="bm-full" aria-pressed="false">File / pipe</button>
+            </div>
+          </div>
+          <button class="run" id="run" type="button">Run <kbd>Ctrl ↵</kbd></button>
+        </div>
+        <p class="note" id="bmnote">Terminal: printf output is flushed at every newline, like running <code>./a.out</code> directly.</p>
+      </div>
+    </section>
+
+    <div class="right">
+      <div id="errbox" class="err" hidden></div>
+
+      <section class="panel" aria-label="Summary">
+        <div class="stats">
+          <div class="stat"><b id="s-procs">0</b><span>processes in total</span></div>
+          <div class="stat"><b id="s-forks">0</b><span>new processes created</span></div>
+          <div class="stat"><b id="s-kids">0</b><span>direct children of main</span></div>
+          <div class="stat"><b id="s-lines">0</b><span>lines printed</span></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Process tree">
+        <div class="hd"><h2>Process tree</h2><span class="hint" id="treehint">Click a process to see only its output</span></div>
+        <div class="treebox" id="tree"></div>
+        <div class="legend">
+          <span><i></i>created by fork()</span>
+          <span><i class="dash"></i>orphan: parent exited first</span>
+          <span><b style="color:var(--warn)">Z</b> zombie: never reaped by wait()</span>
+          <span>Small number beside a node = lines it printed</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Output">
+        <div class="hd">
+          <h2>Output</h2>
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" id="tab-all" aria-selected="true">Combined</button>
+            <button type="button" role="tab" id="tab-plain" aria-selected="false">Plain text</button>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="term" id="term"></div>
+          <div>
+            <div class="fl" style="margin-bottom:6px">Each output line and how many times it appears</div>
+            <div class="counts" id="counts"></div>
+          </div>
+          <p class="note" id="ordernote">This is one possible order. Processes run at the same time, so the real order can change from run to run; the lines and their counts do not. Underline colour shows which process printed each piece.</p>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Processes">
+        <div class="hd"><h2>Processes</h2><span class="hint">PIDs are simulated, starting at 1000</span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>PID</th><th>Parent</th><th>Created at</th><th>Printed</th><th>Exit</th></tr></thead>
+          <tbody id="ptable"></tbody>
+        </table></div>
+      </section>
+
+      <p class="foot"><b>What is simulated:</b> fork, wait, waitpid, exit, atexit, sleep, getpid, getppid, exec* (shown as a note), printf family with real C formatting, scanf, malloc/free, arrays, pointers, structs and unions. Stdout buffering is modelled, so text printed without a newline before fork() is copied into the child, just as on a real machine. Infinite loops stop after a step limit. This is a teaching simulator; for exact results on edge cases, compile with gcc.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Fork-aware mini C interpreter. Each process is simulated by replaying the
+   program from the start with a recorded list of fork() return values. */
+(function (global) {
+'use strict';
+
+class CError extends Error { constructor(msg, line) { super(msg); this.line = line; } }
+
+/* ---------------- Lexer ---------------- */
+const PUNCT = ['<<=', '>>=', '...', '->', '++', '--', '<<', '>>', '<=', '>=', '==', '!=', '&&', '||',
+  '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '+', '-', '*', '/', '%', '<', '>', '=', '!', '~',
+  '&', '|', '^', '?', ':', ';', ',', '.', '(', ')', '[', ']', '{', '}'];
+const ESC = { n: 10, t: 9, r: 13, '0': 0, '\\': 92, "'": 39, '"': 34, a: 7, b: 8, f: 12, v: 11, '?': 63 };
+
+function preprocess(src) {
+  src = src.replace(/\r\n?/g, '\n');
+  src = src.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/−/g, '-');
+  // remove comments but keep line count
+  let out = '', i = 0;
+  while (i < src.length) {
+    const c = src[i], d = src[i + 1];
+    if (c === '"' || c === "'") {
+      const q = c; out += c; i++;
+      while (i < src.length && src[i] !== q && src[i] !== '\n') { if (src[i] === '\\') { out += src[i++]; } out += src[i++]; }
+      if (i < src.length) out += src[i++];
+    } else if (c === '/' && d === '/') { while (i < src.length && src[i] !== '\n') i++; }
+    else if (c === '/' && d === '*') { i += 2; while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) { if (src[i] === '\n') out += '\n'; i++; } i += 2; }
+    else { out += c; i++; }
+  }
+  const defines = {};
+  const lines = out.split('\n').map(l => {
+    const m = l.match(/^\s*#\s*(\w+)\s*(.*)$/);
+    if (!m) return l;
+    if (m[1] === 'define') {
+      const dm = m[2].match(/^(\w+)\s*(.*)$/);
+      if (dm && !/^\w+\(/.test(m[2])) defines[dm[1]] = dm[2];
+    }
+    return '';
+  });
+  return { text: lines.join('\n'), defines };
+}
+
+function lex(src) {
+  const { text, defines } = preprocess(src);
+  const toks = []; let i = 0, line = 1;
+  const push = (type, value) => toks.push({ type, value, line });
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '\n') { line++; i++; continue; }
+    if (/\s/.test(c)) { i++; continue; }
+    if (/[A-Za-z_]/.test(c)) {
+      let j = i; while (j < text.length && /\w/.test(text[j])) j++;
+      const w = text.slice(i, j); i = j;
+      if (defines[w] !== undefined && defines[w] !== '') {
+        const sub = lex(defines[w]); sub.pop();
+        sub.forEach(t => { t.line = line; toks.push(t); });
+      } else push('id', w);
+      continue;
+    }
+    if (/[0-9]/.test(c) || (c === '.' && /[0-9]/.test(text[i + 1]))) {
+      let m = text.slice(i).match(/^(0[xX][0-9a-fA-F]+|(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?)([uUlLfF]*)/);
+      const raw = m[1], suf = m[4].toLowerCase(); i += m[0].length;
+      let isFloat = /[.eE]/.test(raw) && !/^0[xX]/.test(raw);
+      let v;
+      if (/^0[xX]/.test(raw)) v = parseInt(raw, 16);
+      else if (!isFloat && raw.length > 1 && raw[0] === '0') v = parseInt(raw, 8);
+      else v = Number(raw);
+      if (isFloat || suf.includes('f') && !/^0[xX]/.test(raw) && isFloat) push('num', { v, t: suf.includes('f') ? 'float' : 'double' });
+      else push('num', { v, t: suf.includes('l') ? 'long' : (suf.includes('u') ? 'uint' : 'int') });
+      continue;
+    }
+    if (c === "'") {
+      let j = i + 1, v;
+      if (text[j] === '\\') {
+        const e = text[j + 1];
+        if (/[0-7]/.test(e)) { let k = j + 1, s = ''; while (k < j + 4 && /[0-7]/.test(text[k])) s += text[k++]; v = parseInt(s, 8); j = k; }
+        else if (e === 'x') { let k = j + 2, s = ''; while (/[0-9a-fA-F]/.test(text[k])) s += text[k++]; v = parseInt(s, 16); j = k; }
+        else { v = ESC[e] !== undefined ? ESC[e] : e.charCodeAt(0); j += 2; }
+      } else { v = text.charCodeAt(j); j++; }
+      if (text[j] !== "'") throw new CError('Bad character constant', line);
+      i = j + 1; push('char', v); continue;
+    }
+    if (c === '"') {
+      let j = i + 1, s = '';
+      while (j < text.length && text[j] !== '"') {
+        if (text[j] === '\n') throw new CError('Missing closing quote in string', line);
+        if (text[j] === '\\') {
+          const e = text[j + 1];
+          if (/[0-7]/.test(e)) { let k = j + 1, o = ''; while (k < j + 4 && /[0-7]/.test(text[k])) o += text[k++]; s += String.fromCharCode(parseInt(o, 8)); j = k; continue; }
+          if (e === 'x') { let k = j + 2, o = ''; while (/[0-9a-fA-F]/.test(text[k])) o += text[k++]; s += String.fromCharCode(parseInt(o, 16)); j = k; continue; }
+          s += String.fromCharCode(ESC[e] !== undefined ? ESC[e] : e.charCodeAt(0)); j += 2; continue;
+        }
+        s += text[j++];
+      }
+      i = j + 1;
+      const last = toks[toks.length - 1];
+      if (last && last.type === 'str') last.value += s; else push('str', s);
+      continue;
+    }
+    const p = PUNCT.find(p => text.startsWith(p, i));
+    if (!p) throw new CError('Unexpected character "' + c + '"', line);
+    push('op', p); i += p.length;
+  }
+  toks.push({ type: 'eof', value: '', line });
+  return toks;
+}
+
+/* ---------------- Parser ---------------- */
+const BASE_TYPES = new Set(['int', 'char', 'float', 'double', 'long', 'short', 'void', 'unsigned', 'signed',
+  'pid_t', 'size_t', 'ssize_t', 'uid_t', 'FILE', 'bool', '_Bool']);
+const QUALS = new Set(['const', 'static', 'volatile', 'extern', 'register', 'auto', 'inline']);
+
+function parse(toks) {
+  let p = 0;
+  const typedefs = new Set();
+  const structs = {};
+  const peek = (o = 0) => toks[p + o];
+  const at = (v, o = 0) => { const t = toks[p + o]; return (t.type === 'op' || t.type === 'id') && t.value === v; };
+  const next = () => toks[p++];
+  const expect = v => { if (!at(v)) throw new CError('Expected "' + v + '" but found "' + (peek().value || peek().type) + '"', peek().line); return next(); };
+  const isTypeStart = (o = 0) => {
+    const t = toks[p + o]; if (t.type !== 'id') return false;
+    return BASE_TYPES.has(t.value) || QUALS.has(t.value) || t.value === 'struct' || t.value === 'union' || typedefs.has(t.value);
+  };
+
+  function parseBaseType() {
+    const line = peek().line;
+    let words = [], struct = null;
+    while (peek().type === 'id' && (QUALS.has(peek().value))) next();
+    while (true) {
+      const t = peek();
+      if (t.type !== 'id') break;
+      if (QUALS.has(t.value)) { next(); continue; }
+      if (t.value === 'struct' || t.value === 'union') {
+        next(); let name = null;
+        if (peek().type === 'id') name = next().value;
+        if (at('{')) {
+          next(); const fields = [];
+          while (!at('}')) {
+            const bt = parseBaseType();
+            do { const d = parseDeclarator(bt); fields.push(d); } while (at(',') && next());
+            expect(';');
+          }
+          next();
+          const def = { name: name || ('anon' + p), fields, union: t.value === 'union' };
+          if (name) structs[name] = def;
+          struct = def;
+        } else {
+          struct = structs[name] || { name, fields: null, lazy: true };
+          if (!structs[name]) structs[name] = struct;
+        }
+        words.push('struct'); break;
+      }
+      if (BASE_TYPES.has(t.value) || (typedefs.has(t.value) && words.length === 0)) { words.push(next().value); continue; }
+      break;
+    }
+    if (!words.length) throw new CError('Expected a type', line);
+    let base;
+    if (words.includes('struct')) base = 'struct';
+    else if (words.includes('double')) base = 'double';
+    else if (words.includes('float')) base = 'float';
+    else if (words.includes('char')) base = words.includes('unsigned') ? 'uchar' : 'char';
+    else if (words.includes('short')) base = 'short';
+    else if (words.includes('long') || words.includes('size_t') || words.includes('ssize_t')) base = words.includes('unsigned') || words.includes('size_t') ? 'ulong' : 'long';
+    else if (words.includes('void')) base = 'void';
+    else if (words.includes('FILE')) base = 'FILE';
+    else if (words.includes('unsigned')) base = 'uint';
+    else if (typedefs.has(words[0])) return JSON.parse(JSON.stringify(typedefMap[words[0]]), (k, v) => v);
+    else base = 'int';
+    return { base, ptr: 0, arr: [], struct };
+  }
+  const typedefMap = {};
+
+  function parseDeclarator(bt) {
+    const ty = { base: bt.base, ptr: bt.ptr, arr: [], struct: bt.struct };
+    while (at('*')) { next(); ty.ptr++; while (peek().type === 'id' && QUALS.has(peek().value)) next(); }
+    let name = null, funcParams = null;
+    if (at('(') && at('*', 1)) { // function pointer: (*name)(...)
+      next(); next(); name = next().value; expect(')');
+      expect('('); let depth = 1; while (depth) { const t = next(); if (t.value === '(') depth++; if (t.value === ')') depth--; }
+      ty.ptr++; ty.fnptr = true;
+      return { name, ty, line: peek().line };
+    }
+    if (peek().type === 'id') name = next().value;
+    while (at('[')) {
+      next();
+      if (at(']')) { ty.arr.push(null); next(); }
+      else { const e = parseAssign(); ty.arr.push(e); expect(']'); }
+    }
+    if (at('(')) { // function declarator
+      next(); funcParams = parseParams();
+    }
+    return { name, ty, funcParams, line: peek().line };
+  }
+
+  function parseParams() {
+    const params = [];
+    if (at(')')) { next(); return params; }
+    if (at('void') && at(')', 1)) { next(); next(); return params; }
+    while (true) {
+      if (at('...')) { next(); params.push({ name: null, ty: { base: 'int', ptr: 0, arr: [] }, varargs: true }); }
+      else {
+        const bt = parseBaseType();
+        const d = parseDeclarator(bt);
+        if (d.ty.arr.length) { d.ty.arr.shift(); d.ty.ptr++; }
+        params.push(d);
+      }
+      if (at(',')) { next(); continue; }
+      expect(')'); break;
+    }
+    return params;
+  }
+
+  function parseInit() {
+    if (at('{')) {
+      next(); const items = [];
+      while (!at('}')) { items.push(parseInit()); if (at(',')) next(); else break; }
+      expect('}');
+      return { k: 'initlist', items };
+    }
+    return parseAssign();
+  }
+
+  function parseDeclStatement(bt, line) {
+    const decls = [];
+    do {
+      const d = parseDeclarator(bt);
+      let init = null;
+      if (at('=')) { next(); init = parseInit(); }
+      decls.push({ name: d.name, ty: d.ty, init, line: d.line, isFunc: !!d.funcParams });
+    } while (at(',') && next());
+    expect(';');
+    return { k: 'decl', decls: decls.filter(d => !d.isFunc && d.name), line };
+  }
+
+  // ---- statements
+  function parseStatement() {
+    const t = peek(), line = t.line;
+    if (at('{')) return parseBlock();
+    if (at(';')) { next(); return { k: 'empty', line }; }
+    if (t.type === 'id') {
+      switch (t.value) {
+        case 'if': {
+          next(); expect('('); const cond = parseExpr(); expect(')');
+          const then = parseStatement(); let els = null;
+          if (at('else')) { next(); els = parseStatement(); }
+          return { k: 'if', cond, then, els, line };
+        }
+        case 'while': { next(); expect('('); if (at(')')) throw new CError('while ( ) needs a condition: an empty condition is a syntax error', line); const cond = parseExpr(); expect(')'); return { k: 'while', cond, body: parseStatement(), line }; }
+        case 'do': { next(); const body = parseStatement(); expect('while'); expect('('); const cond = parseExpr(); expect(')'); expect(';'); return { k: 'do', cond, body, line }; }
+        case 'for': {
+          next(); expect('(');
+          let init = null;
+          if (at(';')) next();
+          else if (isTypeStart()) { const bt = parseBaseType(); init = parseDeclStatement(bt, line); }
+          else { init = { k: 'expr', e: parseExpr(), line }; expect(';'); }
+          const cond = at(';') ? null : parseExpr(); expect(';');
+          const step = at(')') ? null : parseExpr(); expect(')');
+          return { k: 'for', init, cond, step, body: parseStatement(), line };
+        }
+        case 'switch': { next(); expect('('); const e = parseExpr(); expect(')'); return { k: 'switch', e, body: parseStatement(), line }; }
+        case 'case': { next(); const e = parseCond(); expect(':'); return { k: 'case', e, line }; }
+        case 'default': { next(); expect(':'); return { k: 'default', line }; }
+        case 'break': next(); expect(';'); return { k: 'break', line };
+        case 'continue': next(); expect(';'); return { k: 'continue', line };
+        case 'return': { next(); const e = at(';') ? null : parseExpr(); expect(';'); return { k: 'return', e, line }; }
+        case 'goto': throw new CError('goto is not supported', line);
+        case 'typedef': return parseTypedef();
+      }
+      if (isTypeStart() && !(typedefs.has(t.value) && (at('(', 1) || at('=', 1)))) {
+        const bt = parseBaseType();
+        if (at(';')) { next(); return { k: 'empty', line }; }
+        return parseDeclStatement(bt, line);
+      }
+    }
+    const e = parseExpr(); expect(';');
+    return { k: 'expr', e, line };
+  }
+  function parseTypedef() {
+    const line = peek().line; next();
+    const bt = parseBaseType();
+    const d = parseDeclarator(bt);
+    expect(';');
+    typedefs.add(d.name); typedefMap[d.name] = d.ty;
+    return { k: 'empty', line };
+  }
+  function parseBlock() {
+    const line = peek().line; expect('{');
+    const body = [];
+    while (!at('}')) { if (peek().type === 'eof') throw new CError('Missing closing }', line); body.push(parseStatement()); }
+    next();
+    return { k: 'block', body, line };
+  }
+
+  // ---- expressions
+  function parseExpr() {
+    let e = parseAssign();
+    while (at(',')) { const line = next().line; e = { k: 'comma', a: e, b: parseAssign(), line }; }
+    return e;
+  }
+  const ASSIGN = new Set(['=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=']);
+  function parseAssign() {
+    const lhs = parseCond();
+    if (peek().type === 'op' && ASSIGN.has(peek().value)) {
+      const op = next().value, line = peek().line;
+      return { k: 'assign', op, l: lhs, r: parseAssign(), line };
+    }
+    return lhs;
+  }
+  function parseCond() {
+    const c = parseBin(0);
+    if (at('?')) { const line = next().line; const a = parseExpr(); expect(':'); const b = parseCond(); return { k: 'cond', c, a, b, line }; }
+    return c;
+  }
+  const PREC = [['||'], ['&&'], ['|'], ['^'], ['&'], ['==', '!='], ['<', '>', '<=', '>='], ['<<', '>>'], ['+', '-'], ['*', '/', '%']];
+  function parseBin(level) {
+    if (level >= PREC.length) return parseUnary();
+    let l = parseBin(level + 1);
+    while (peek().type === 'op' && PREC[level].includes(peek().value)) {
+      const op = next().value, line = peek().line;
+      const r = parseBin(level + 1);
+      l = { k: op === '&&' || op === '||' ? 'logic' : 'bin', op, l, r, line };
+    }
+    return l;
+  }
+  function parseTypeName() {
+    const bt = parseBaseType();
+    const ty = { base: bt.base, ptr: 0, arr: [], struct: bt.struct };
+    while (at('*')) { next(); ty.ptr++; }
+    while (at('[')) { next(); ty.arr.push(at(']') ? null : parseAssign()); expect(']'); }
+    return ty;
+  }
+  function parseUnary() {
+    const t = peek(), line = t.line;
+    if (t.type === 'op') {
+      if (t.value === '++' || t.value === '--') { next(); return { k: 'preinc', op: t.value, e: parseUnary(), line }; }
+      if (['-', '+', '!', '~', '*', '&'].includes(t.value)) { next(); return { k: 'unary', op: t.value, e: parseUnary(), line }; }
+      if (t.value === '(' && isTypeStart(1)) {
+        next(); const ty = parseTypeName(); expect(')');
+        if (at('{')) throw new CError('Compound literals are not supported', line);
+        return { k: 'cast', ty, e: parseUnary(), line };
+      }
+    }
+    if (t.type === 'id' && t.value === 'sizeof') {
+      next();
+      if (at('(') && isTypeStart(1)) { next(); const ty = parseTypeName(); expect(')'); return { k: 'sizeoft', ty, line }; }
+      return { k: 'sizeofe', e: parseUnary(), line };
+    }
+    return parsePostfix(parsePrimary());
+  }
+  function parsePostfix(e) {
+    while (true) {
+      const line = peek().line;
+      if (at('(')) {
+        next(); const args = [];
+        if (!at(')')) { do { args.push(parseAssign()); } while (at(',') && next()); }
+        expect(')');
+        e = { k: 'call', f: e, args, line };
+      } else if (at('[')) { next(); const i = parseExpr(); expect(']'); e = { k: 'index', a: e, i, line }; }
+      else if (at('.')) { next(); e = { k: 'member', e, name: next().value, line }; }
+      else if (at('->')) { next(); e = { k: 'member', e: { k: 'unary', op: '*', e, line }, name: next().value, line }; }
+      else if (at('++') || at('--')) { e = { k: 'postinc', op: next().value, e, line }; }
+      else return e;
+    }
+  }
+  function parsePrimary() {
+    const t = next(), line = t.line;
+    if (t.type === 'num') return { k: 'num', v: t.value.v, t: t.value.t, line };
+    if (t.type === 'char') return { k: 'num', v: t.value, t: 'int', isChar: true, line };
+    if (t.type === 'str') return { k: 'str', v: t.value, line };
+    if (t.type === 'id') return { k: 'id', name: t.value, line };
+    if (t.type === 'op' && t.value === '(') { const e = parseExpr(); expect(')'); return e; }
+    throw new CError('Unexpected "' + (t.value || t.type) + '"', line);
+  }
+
+  // ---- top level
+  const funcs = {}, globals = [];
+  while (peek().type !== 'eof') {
+    const line = peek().line;
+    if (at(';')) { next(); continue; }
+    if (at('typedef')) { parseTypedef(); continue; }
+    if (!isTypeStart()) {
+      // allow K&R style "main()" with implicit int
+      if (peek().type === 'id' && at('(', 1)) { /* implicit int */ }
+      else throw new CError('Expected a declaration, found "' + peek().value + '"', line);
+    }
+    const bt = isTypeStart() ? parseBaseType() : { base: 'int', ptr: 0, arr: [] };
+    if (at(';')) { next(); continue; } // struct definition only
+    const d = parseDeclarator(bt);
+    if (d.funcParams) {
+      if (at('{')) { const body = parseBlock(); funcs[d.name] = { name: d.name, params: d.funcParams, ret: d.ty, body, line }; continue; }
+      while (at(',')) { next(); parseDeclarator(bt); }
+      expect(';'); continue; // prototype
+    }
+    // global variable(s)
+    let init = null; if (at('=')) { next(); init = parseInit(); }
+    const decls = [{ name: d.name, ty: d.ty, init, line }];
+    while (at(',')) { next(); const d2 = parseDeclarator(bt); let i2 = null; if (at('=')) { next(); i2 = parseInit(); } decls.push({ name: d2.name, ty: d2.ty, init: i2, line }); }
+    expect(';');
+    globals.push({ k: 'decl', decls, line });
+  }
+  if (!funcs.main) throw new CError('No main() function found', 1);
+  return { funcs, globals, structs };
+}
+
+/* ---------------- Values ---------------- */
+const SIZE = { char: 1, uchar: 1, short: 2, int: 4, uint: 4, long: 8, ulong: 8, float: 4, double: 8, void: 1, FILE: 8 };
+const isFloatT = t => t === 'float' || t === 'double';
+const V = (t, v) => ({ t, v });
+const INT = v => ({ t: 'int', v: v | 0 });
+const NULLP = () => ({ t: 'ptr', base: null, idx: 0, ety: null });
+
+class Exit { constructor(code, flush) { this.code = code; this.flush = flush; } }
+class Brk { } class Cont { } class Ret { constructor(v) { this.v = v; } }
+class Stop extends Error { }
+
+function convScalar(base, v) {
+  switch (base) {
+    case 'char': return ((v | 0) << 24) >> 24;
+    case 'uchar': return (v | 0) & 255;
+    case 'short': return ((v | 0) << 16) >> 16;
+    case 'int': return isFinite(v) ? Math.trunc(v) | 0 : 0;
+    case 'uint': return isFinite(v) ? (Math.trunc(v) >>> 0) : 0;
+    case 'long': case 'ulong': return isFinite(v) ? Math.trunc(v) : 0;
+    case 'float': return Math.fround(v);
+    case 'double': return +v;
+    default: return v;
+  }
+}
+
+/* ---------------- printf ---------------- */
+function fmtExp(x, prec, upper, alt) {
+  if (!isFinite(x)) return fmtSpecial(x, upper);
+  let s = x.toExponential(prec);
+  let [m, e] = s.split('e');
+  if (alt && prec === 0 && !m.includes('.')) m += '.';
+  let sign = e[0] === '-' ? '-' : '+'; e = e.replace(/^[+-]/, '');
+  if (e.length < 2) e = '0' + e;
+  return m + (upper ? 'E' : 'e') + sign + e;
+}
+function fmtSpecial(x, upper) { const s = isNaN(x) ? 'nan' : (x < 0 ? '-inf' : 'inf'); return upper ? s.toUpperCase() : s; }
+function fmtG(x, prec, upper, alt) {
+  if (!isFinite(x)) return fmtSpecial(x, upper);
+  if (prec === 0) prec = 1;
+  if (x === 0) { let s = (0).toFixed(prec - 1); if (!alt) s = '0'; return (Object.is(x, -0) ? '-' : '') + s; }
+  const ex = Number(x.toExponential(prec - 1).split('e')[1]);
+  let s;
+  if (ex < -4 || ex >= prec) {
+    s = fmtExp(x, prec - 1, upper, alt);
+    if (!alt) s = s.replace(/\.?0+(?=[eE])/, '');
+  } else {
+    s = x.toFixed(Math.max(0, prec - 1 - ex));
+    if (!alt) { if (s.includes('.')) s = s.replace(/\.?0+$/, ''); }
+    else if (!s.includes('.')) s += '.';
+  }
+  return s;
+}
+function formatC(fmt, nextArg, readStr) {
+  let out = '', i = 0;
+  while (i < fmt.length) {
+    const c = fmt[i];
+    if (c !== '%') { out += c; i++; continue; }
+    i++;
+    if (fmt[i] === '%') { out += '%'; i++; continue; }
+    let flags = '';
+    while ('-+ #0'.includes(fmt[i]) && i < fmt.length) flags += fmt[i++];
+    let width = null, prec = null;
+    if (fmt[i] === '*') { width = numOf(nextArg()); i++; if (width < 0) { flags += '-'; width = -width; } }
+    else { let w = ''; while (/[0-9]/.test(fmt[i])) w += fmt[i++]; if (w) width = +w; }
+    if (fmt[i] === '.') { i++; if (fmt[i] === '*') { prec = numOf(nextArg()); i++; if (prec < 0) prec = null; } else { let pr = ''; while (/[0-9]/.test(fmt[i])) pr += fmt[i++]; prec = pr ? +pr : 0; } }
+    let len = '';
+    while ('hlLqjzt'.includes(fmt[i]) && i < fmt.length) len += fmt[i++];
+    const conv = fmt[i++];
+    if (conv === undefined) { out += '%' + flags; break; }
+    const left = flags.includes('-'), plus = flags.includes('+'), space = flags.includes(' '), alt = flags.includes('#');
+    let zero = flags.includes('0') && !left;
+    let body = '', sign = '', prefix = '';
+    const a = 'diouxXcspfFeEgGaAn'.includes(conv) && conv !== 'n' ? nextArg() : null;
+    switch (conv) {
+      case 'd': case 'i': {
+        let v = intOf(a, len); if (v < 0) { sign = '-'; v = -v; } else if (plus) sign = '+'; else if (space) sign = ' ';
+        body = (prec === 0 && v === 0) ? '' : String(v);
+        if (prec !== null) { body = body.padStart(prec, '0'); zero = false; }
+        break;
+      }
+      case 'u': case 'o': case 'x': case 'X': {
+        let v = uintOf(a, len);
+        body = conv === 'u' ? String(v) : conv === 'o' ? v.toString(8) : v.toString(16);
+        if (conv === 'X') body = body.toUpperCase();
+        if (prec === 0 && v === 0) body = '';
+        if (prec !== null) { body = body.padStart(prec, '0'); zero = false; }
+        if (alt && conv === 'o' && body[0] !== '0') body = '0' + body;
+        if (alt && (conv === 'x' || conv === 'X') && v !== 0) prefix = conv === 'x' ? '0x' : '0X';
+        break;
+      }
+      case 'c': body = String.fromCharCode(numOf(a) & 255); zero = false; break;
+      case 's': { body = readStr(a); if (prec !== null) body = body.slice(0, prec); zero = false; break; }
+      case 'p': { body = ptrText(a); zero = false; break; }
+      case 'f': case 'F': case 'e': case 'E': case 'g': case 'G': case 'a': case 'A': {
+        let v = numOf(a); const p = prec === null ? 6 : prec;
+        if (v < 0 || Object.is(v, -0)) { sign = '-'; v = -v; } else if (plus) sign = '+'; else if (space) sign = ' ';
+        if (!isFinite(v)) { body = fmtSpecial(v, conv === conv.toUpperCase()); zero = false; }
+        else if (conv === 'f' || conv === 'F') { body = v.toFixed(p); if (alt && p === 0) body += '.'; }
+        else if (conv === 'e' || conv === 'E') body = fmtExp(v, p, conv === 'E', alt);
+        else body = fmtG(v, p, conv === 'G', alt);
+        break;
+      }
+      default: out += '%' + flags + conv; continue;
+    }
+    let s = sign + prefix + body;
+    if (width !== null && s.length < width) {
+      if (left) s = s + ' '.repeat(width - s.length);
+      else if (zero) s = sign + prefix + '0'.repeat(width - s.length) + body;
+      else s = ' '.repeat(width - s.length) + s;
+    }
+    out += s;
+  }
+  return out;
+}
+function numOf(a) { if (!a) return 0; if (a.t === 'ptr') return a.base ? 0x7ffd1000 + a.idx * 4 : 0; return a.v; }
+function intOf(a, len) {
+  if (!a) return 0;
+  let v = a.t === 'ptr' ? numOf(a) : a.v;
+  if (isFloatT(a.t)) { const b = new DataView(new ArrayBuffer(8)); b.setFloat64(0, v); v = b.getInt32(4); }
+  v = Math.trunc(v);
+  if (len.includes('l') || len.includes('z') || len.includes('j')) return v;
+  if (len === 'hh') return (v << 24) >> 24;
+  if (len === 'h') return (v << 16) >> 16;
+  return v | 0;
+}
+function uintOf(a, len) {
+  if (!a) return 0;
+  let v = a.t === 'ptr' ? numOf(a) : Math.trunc(a.v);
+  if (len.includes('l') || len.includes('z') || len.includes('j')) return v < 0 ? 2 ** 64 + v : v;
+  if (len === 'hh') return v & 255;
+  if (len === 'h') return v & 65535;
+  return v >>> 0;
+}
+let ptrIds = new WeakMap(), ptrNext = 0;
+function ptrText(a) {
+  if (!a || a.t !== 'ptr' || !a.base) return a && a.t !== 'ptr' && a.v ? '0x' + (a.v >>> 0).toString(16) : '(nil)';
+  if (!ptrIds.has(a.base)) { ptrIds.set(a.base, 0x7ffd5e8a3000 + (ptrNext++) * 0x40); }
+  const esz = a.ety ? sizeOfType(a.ety) : 4;
+  return '0x' + (ptrIds.get(a.base) + a.idx * esz).toString(16);
+}
+function dimVal(n) { if (typeof n === 'number') return n; if (n && n.k === 'num') return n.v; return 1; }
+function sizeOfType(ty) {
+  if (!ty) return 4;
+  let s;
+  if (ty.ptr > 0) s = 8;
+  else if (ty.base === 'struct') s = structSize(ty.struct);
+  else s = SIZE[ty.base] || 4;
+  for (const n of ty.arr || []) s *= dimVal(n);
+  return s;
+}
+function alignOf(ty) {
+  if (ty.ptr > 0) return 8;
+  if (ty.base === 'struct') { const d = ty.struct; if (!d || !d.fields) return 1; return Math.max(1, ...d.fields.map(f => alignOf(f.ty))); }
+  return SIZE[ty.base] || 4;
+}
+function structSize(def) {
+  if (!def || !def.fields) return 0;
+  let off = 0, maxA = 1, maxS = 0;
+  for (const f of def.fields) {
+    const sz = sizeOfType(f.ty), al = alignOf(f.ty);
+    maxA = Math.max(maxA, al);
+    if (def.union) { maxS = Math.max(maxS, sz); continue; }
+    off = Math.ceil(off / al) * al + sz;
+  }
+  const total = def.union ? maxS : off;
+  return Math.ceil(total / maxA) * maxA;
+}
+
+/* ---------------- Interpreter for one process ---------------- */
+function runProcess(prog, sim, proc) {
+  const cfg = sim.cfg;
+  let k = 0;                 // forks executed so far in this replay
+  let steps = 0, clock = 0;
+  let myKids = [];           // children of the current identity (pids)
+  let reaped = new Set();
+  let stdoutBuf = '';
+  let bufMode = cfg.bufMode; // 'line' | 'full' | 'none'
+  const atexitFns = [];
+  const live = () => k >= proc.birthLen;
+  const identity = () => { let id = proc.ids[0]; for (const e of proc.ids) if (e.atK <= k) id = e; return id; };
+  let stdinPos = 0; const stdin = cfg.stdin || '';
+  let curLine = 0;
+
+  function emitRaw(stream, text) {
+    if (!text) return;
+    if (live()) sim.events.push({ clock, seq: sim.seq++, pid: proc.pid, stream, text });
+  }
+  function writeOut(stream, text) {
+    if (stream === 'stderr' || bufMode === 'none') { if (stream !== 'stderr') flushOut(); emitRaw(stream, text); return; }
+    stdoutBuf += text;
+    if (bufMode === 'line') {
+      const j = stdoutBuf.lastIndexOf('\n');
+      if (j >= 0) { emitRaw('stdout', stdoutBuf.slice(0, j + 1)); stdoutBuf = stdoutBuf.slice(j + 1); }
+    } else if (stdoutBuf.length >= 4096) flushOut();
+  }
+  function flushOut() { if (stdoutBuf) { emitRaw('stdout', stdoutBuf); stdoutBuf = ''; } }
+  function tick() {
+    steps++; clock++;
+    if (steps > cfg.maxSteps) throw new CError('Stopped after ' + cfg.maxSteps.toLocaleString() + ' steps: this process looks like an infinite loop', curLine);
+  }
+
+  // ---- environment
+  const globalsEnv = new Map();
+  let scopes = [];
+  const lookup = (name, line) => {
+    for (let i = scopes.length - 1; i >= 0; i--) if (scopes[i].has(name)) return scopes[i].get(name);
+    if (globalsEnv.has(name)) return globalsEnv.get(name);
+    return null;
+  };
+
+  function resolveDims(ty) {
+    if (ty._resolved) return ty;
+    const t2 = Object.assign({}, ty, { arr: ty.arr.map(n => (n === null ? null : (typeof n === 'number' ? n : numOf(evalR(n))))), _resolved: true });
+    if (t2.base === 'struct' && t2.struct && t2.struct.lazy && prog.structs[t2.struct.name] && prog.structs[t2.struct.name].fields) t2.struct = prog.structs[t2.struct.name];
+    return t2;
+  }
+  function elemType(ty) { return Object.assign({}, ty, { arr: ty.arr.slice(1), _resolved: true }); }
+  function makeCell(ty) {
+    ty = resolveDims(ty);
+    if (ty.arr.length) {
+      const n = ty.arr[0] === null ? 0 : ty.arr[0];
+      const et = elemType(ty);
+      const elems = []; for (let i = 0; i < n; i++) elems.push(makeCell(et));
+      return { ty, val: { t: 'arr', elems, ety: et } };
+    }
+    if (ty.ptr > 0) return { ty, val: NULLP() };
+    if (ty.base === 'struct') {
+      const def = ty.struct && ty.struct.fields ? ty.struct : (ty.struct && prog.structs[ty.struct.name]);
+      if (!def || !def.fields) throw new CError('struct ' + (ty.struct && ty.struct.name) + ' is not defined before use', curLine);
+      const fields = {};
+      let shared = null;
+      for (const f of def.fields) { fields[f.name] = makeCell(f.ty); }
+      if (def.union) { /* simple union: share one numeric cell */ shared = { t: 'union' }; }
+      return { ty: Object.assign({}, ty, { struct: def }), val: { t: 'struct', def, fields, union: def.union } };
+    }
+    return { ty, val: V(ty.base, 0) };
+  }
+  function cellValue(cell) {
+    const v = cell.val;
+    if (v.t === 'arr') return { t: 'ptr', base: v.elems, idx: 0, ety: v.ety };
+    return v;
+  }
+  function assignCell(cell, val, line) {
+    const ty = cell.ty;
+    if (cell.val && cell.val.t === 'arr') throw new CError('Cannot assign to an array', line);
+    if (ty.ptr > 0) {
+      if (val.t === 'ptr') cell.val = { t: 'ptr', base: val.base, idx: val.idx, ety: ty.ptr === 1 ? Object.assign({}, ty, { ptr: 0, arr: [] }) : Object.assign({}, ty, { ptr: ty.ptr - 1, arr: [] }), str: val.str, fn: val.fn };
+      else if (val.t === 'fn') cell.val = val;
+      else cell.val = val.v === 0 ? NULLP() : { t: 'ptr', base: null, idx: 0, raw: val.v };
+      return cell.val;
+    }
+    if (ty.base === 'struct') {
+      if (val.t !== 'struct') throw new CError('Cannot assign a non-struct to a struct', line);
+      for (const f in val.fields) assignCell(cell.val.fields[f], cellValue(val.fields[f]), line);
+      return cell.val;
+    }
+    if (val.t === 'ptr') { cell.val = V(ty.base, convScalar(ty.base, numOf(val))); return cell.val; }
+    if (val.t === 'struct') throw new CError('Cannot assign a struct to a ' + ty.base, line);
+    cell.val = V(ty.base, convScalar(ty.base, val.v));
+    if (cell.union) { /* keep union members in sync via raw bytes */ syncUnion(cell); }
+    return cell.val;
+  }
+  function syncUnion(cell) {
+    const u = cell.union; const buf = new DataView(new ArrayBuffer(16));
+    const b = cell.ty.base, v = cell.val.v;
+    if (b === 'double') buf.setFloat64(0, v, true); else if (b === 'float') buf.setFloat32(0, v, true);
+    else if (b === 'char' || b === 'uchar') buf.setInt8(0, v); else if (b === 'short') buf.setInt16(0, v, true);
+    else if (b === 'long' || b === 'ulong') buf.setBigInt64(0, BigInt(Math.trunc(v)), true); else buf.setInt32(0, v, true);
+    // other members read the same bytes; bytes beyond the written size keep old values (approximation: zero)
+    for (const name in u.fields) {
+      const c = u.fields[name]; if (c === cell || c.ty.ptr || c.val.t === 'arr') continue;
+      const bb = c.ty.base; let nv;
+      if (bb === 'double') nv = buf.getFloat64(0, true); else if (bb === 'float') nv = buf.getFloat32(0, true);
+      else if (bb === 'char') nv = buf.getInt8(0); else if (bb === 'uchar') nv = buf.getUint8(0); else if (bb === 'short') nv = buf.getInt16(0, true);
+      else if (bb === 'long' || bb === 'ulong') nv = Number(buf.getBigInt64(0, true)); else nv = buf.getInt32(0, true);
+      c.val = V(bb, nv);
+    }
+  }
+  function initCell(cell, init, line) {
+    if (!init) return;
+    const v = cell.val;
+    if (v.t === 'arr') {
+      if (init.k === 'str') {
+        const s = init.v;
+        if (cell.ty.arr[0] === null || v.elems.length === 0) { const n = s.length + 1; for (let i = v.elems.length; i < n; i++) v.elems.push(makeCell(v.ety)); cell.ty.arr = [n].concat(cell.ty.arr.slice(1)); }
+        for (let i = 0; i < v.elems.length; i++) v.elems[i].val = V(v.ety.base, i < s.length ? s.charCodeAt(i) : 0);
+        return;
+      }
+      if (init.k !== 'initlist') throw new CError('Array needs a { } initializer', line);
+      // flatten brace elision
+      const leafCount = c => (c.val.t === 'arr' ? c.val.elems.reduce((s, e) => s + leafCount(e), 0) || 0 : 1);
+      if (cell.ty.arr[0] === null) {
+        const per = (() => { const t = makeCell(v.ety); return leafCount(t); })();
+        const flat = flatCount(init);
+        const n = init.items.every(it => it.k === 'initlist') ? init.items.length : Math.ceil(flat / per);
+        for (let i = 0; i < n; i++) v.elems.push(makeCell(v.ety));
+        cell.ty = Object.assign({}, cell.ty, { arr: [n].concat(cell.ty.arr.slice(1)) });
+      }
+      fillAgg(cell, init, line);
+      return;
+    }
+    if (v.t === 'struct') { if (init.k === 'initlist') { fillAgg(cell, init, line); return; } assignCell(cell, evalR(init), line); return; }
+    if (init.k === 'initlist') { if (init.items.length) assignCell(cell, evalR(init.items[0]), line); return; }
+    assignCell(cell, evalR(init), line);
+  }
+  function flatCount(init) { return init.k === 'initlist' ? init.items.reduce((s, i) => s + flatCount(i), 0) : 1; }
+  function fillAgg(cell, init, line) {
+    // init lists with brace elision
+    const leaves = [];
+    (function collect(c) { if (c.val.t === 'arr') c.val.elems.forEach(collect); else if (c.val.t === 'struct') Object.values(c.val.fields).forEach(collect); else leaves.push(c); })(cell);
+    if (init.items.every(it => it.k !== 'initlist')) {
+      init.items.forEach((it, i) => { if (i < leaves.length) assignCell(leaves[i], evalR(it), line); });
+      if (cell.val.t === 'struct' && init.items.some(it => it.k === 'str')) { /* char array member by string */ }
+      return;
+    }
+    const subs = cell.val.t === 'arr' ? cell.val.elems : Object.values(cell.val.fields);
+    init.items.forEach((it, i) => { if (i < subs.length) { if (it.k === 'initlist' || it.k === 'str' && subs[i].val.t === 'arr') initCell(subs[i], it, line); else initCell(subs[i], it, line); } });
+  }
+  function declare(d, scope) {
+    curLine = d.line;
+    const cell = makeCell(d.ty);
+    scope.set(d.name, cell);
+    if (d.init) initCell(cell, d.init, d.line);
+    if (cell.val.t === 'struct' && cell.val.union) for (const f in cell.val.fields) cell.val.fields[f].union = cell.val;
+  }
+
+  // ---- strings and memory helpers
+  function readStr(p) {
+    if (!p) return '(null)';
+    if (p.t !== 'ptr') return '';
+    if (!p.base) return '(null)';
+    let s = '';
+    for (let i = p.idx; i < p.base.length; i++) { const c = p.base[i].val.v; if (!c) break; s += String.fromCharCode(c & 255); }
+    return s;
+  }
+  function strLit(s) {
+    const elems = []; for (let i = 0; i <= s.length; i++) elems.push({ ty: { base: 'char', ptr: 0, arr: [] }, val: V('char', i < s.length ? s.charCodeAt(i) : 0), ro: true });
+    return { t: 'ptr', base: elems, idx: 0, ety: { base: 'char', ptr: 0, arr: [] } };
+  }
+  function deref(p, line) {
+    if (p.t !== 'ptr') throw new CError('Cannot use * on a non-pointer value', line);
+    if (!p.base) throw new CError('Segmentation fault: dereferencing a NULL or invalid pointer', line);
+    if (p.idx < 0 || p.idx >= p.base.length) throw new CError('Segmentation fault: pointer outside its array (index ' + p.idx + ')', line);
+    if (p.base.freed) throw new CError('Use after free (undefined behaviour): reading memory that was freed', line);
+    if (p.base.dangling) throw new CError('Undefined behaviour: pointer to a local variable of a function that has returned (dangling pointer)', line);
+    const c = p.base[p.idx];
+    if (c.heap && p.ety && !p.ety.arr.length && p.ety.base !== 'void') {
+      const want = p.ety.ptr > 0 ? 'ptr' : p.ety.base;
+      const same = c.ty.base === p.ety.base && c.ty.ptr === p.ety.ptr;
+      if (!same) {
+        const old = c.val;
+        const nc = makeCell(Object.assign({}, p.ety, { arr: [] }));
+        c.ty = nc.ty; c.val = nc.val;
+        if (old && old.t !== 'struct' && want !== 'struct' && !(want === 'ptr' && old.t !== 'ptr')) { try { assignCell(c, old, line); } catch (e) { } }
+      }
+    }
+    return c;
+  }
+  function alloc(nbytes, ety) {
+    const n = Math.max(1, Math.ceil(nbytes));
+    const elems = []; for (let i = 0; i < n; i++) elems.push({ ty: { base: 'int', ptr: 0, arr: [] }, val: V('int', 0), heap: true });
+    elems.heap = true;
+    return { t: 'ptr', base: elems, idx: 0, ety: null };
+  }
+
+  // ---- expression evaluation
+  function typeOfExpr(e) {
+    switch (e.k) {
+      case 'num': return { base: e.t, ptr: 0, arr: [] };
+      case 'str': return { base: 'char', ptr: 0, arr: [e.v.length + 1] };
+      case 'id': { const c = lookup(e.name); if (c) return c.ty; return { base: 'int', ptr: 0, arr: [] }; }
+      case 'index': { const t = typeOfExpr(e.a); if (t.arr.length) return Object.assign({}, t, { arr: t.arr.slice(1) }); return Object.assign({}, t, { ptr: Math.max(0, t.ptr - 1) }); }
+      case 'unary':
+        if (e.op === '*') { const t = typeOfExpr(e.e); if (t.arr.length) return Object.assign({}, t, { arr: t.arr.slice(1) }); return Object.assign({}, t, { ptr: Math.max(0, t.ptr - 1) }); }
+        if (e.op === '&') { const t = typeOfExpr(e.e); return Object.assign({}, t, { ptr: t.ptr + 1, arr: [] }); }
+        if (e.op === '!') return { base: 'int', ptr: 0, arr: [] };
+        return promote(typeOfExpr(e.e));
+      case 'cast': return e.ty;
+      case 'member': { const t = typeOfExpr(e.e); const def = t.struct && (t.struct.fields ? t.struct : prog.structs[t.struct.name]); const f = def && def.fields.find(f => f.name === e.name); return f ? f.ty : { base: 'int', ptr: 0, arr: [] }; }
+      case 'bin': {
+        const a = typeOfExpr(e.l), b = typeOfExpr(e.r);
+        if (['==', '!=', '<', '>', '<=', '>='].includes(e.op)) return { base: 'int', ptr: 0, arr: [] };
+        if (a.ptr || a.arr.length) return Object.assign({}, a, { ptr: a.ptr + (a.arr.length ? 1 : 0), arr: [] });
+        if (b.ptr || b.arr.length) return Object.assign({}, b, { ptr: b.ptr + (b.arr.length ? 1 : 0), arr: [] });
+        const order = ['double', 'float', 'ulong', 'long', 'uint', 'int'];
+        const pa = promote(a).base, pb = promote(b).base;
+        for (const o of order) if (pa === o || pb === o) return { base: o, ptr: 0, arr: [] };
+        return { base: 'int', ptr: 0, arr: [] };
+      }
+      case 'logic': return { base: 'int', ptr: 0, arr: [] };
+      case 'assign': return typeOfExpr(e.l);
+      case 'preinc': case 'postinc': return typeOfExpr(e.e);
+      case 'cond': return typeOfExpr(e.a);
+      case 'comma': return typeOfExpr(e.b);
+      case 'call': {
+        if (e.f.k === 'id' && prog.funcs[e.f.name]) return prog.funcs[e.f.name].ret;
+        if (e.f.k === 'id' && ['malloc', 'calloc', 'realloc'].includes(e.f.name)) return { base: 'void', ptr: 1, arr: [] };
+        return { base: 'int', ptr: 0, arr: [] };
+      }
+      case 'sizeoft': case 'sizeofe': return { base: 'ulong', ptr: 0, arr: [] };
+    }
+    return { base: 'int', ptr: 0, arr: [] };
+  }
+  function promote(t) { if (t.ptr || t.arr.length) return t; if (['char', 'uchar', 'short'].includes(t.base)) return { base: 'int', ptr: 0, arr: [] }; return t; }
+
+  function evalL(e) {
+    curLine = e.line || curLine;
+    switch (e.k) {
+      case 'id': {
+        const c = lookup(e.name);
+        if (!c) throw new CError("'" + e.name + "' undeclared (first use in this function)", e.line);
+        return c;
+      }
+      case 'index': {
+        const a = evalR(e.a), i = evalR(e.i);
+        let p = a, n = i;
+        if (a.t !== 'ptr' && i.t === 'ptr') { p = i; n = a; }
+        if (p.t !== 'ptr') throw new CError('Subscripted value is neither array nor pointer', e.line);
+        return deref({ t: 'ptr', base: p.base, idx: p.idx + Math.trunc(numOf(n)), ety: p.ety }, e.line);
+      }
+      case 'unary': if (e.op === '*') return deref(evalR(e.e), e.line); break;
+      case 'member': {
+        const c = evalL(e.e);
+        if (c.val.t !== 'struct') throw new CError('Request for member "' + e.name + '" in something that is not a structure', e.line);
+        const f = c.val.fields[e.name];
+        if (!f) throw new CError('Structure has no member named "' + e.name + '"', e.line);
+        return f;
+      }
+      case 'str': return { ty: { base: 'char', ptr: 0, arr: [e.v.length + 1] }, val: { t: 'arr', elems: strLit(e.v).base, ety: { base: 'char', ptr: 0, arr: [] } } };
+    }
+    throw new CError('Expression is not assignable (lvalue required)', e.line);
+  }
+
+  function arith(op, a, b, line) {
+    // pointer arithmetic
+    if (a.t === 'ptr' || b.t === 'ptr') {
+      if (op === '+') { const [p, n] = a.t === 'ptr' ? [a, b] : [b, a]; return { t: 'ptr', base: p.base, idx: p.idx + Math.trunc(numOf(n)), ety: p.ety, str: p.str }; }
+      if (op === '-' && a.t === 'ptr' && b.t !== 'ptr') return { t: 'ptr', base: a.base, idx: a.idx - Math.trunc(numOf(b)), ety: a.ety };
+      if (op === '-' && a.t === 'ptr' && b.t === 'ptr') return V('long', a.idx - b.idx);
+      const cmp = (x, y) => {
+        const same = a.t === 'ptr' && b.t === 'ptr' && a.base === b.base;
+        if (same) return [x.idx, y.idx];
+        return [ptrNum(x), ptrNum(y)];
+      };
+      const [x, y] = cmp(a, b);
+      switch (op) {
+        case '==': return INT(x === y); case '!=': return INT(x !== y);
+        case '<': return INT(x < y); case '>': return INT(x > y); case '<=': return INT(x <= y); case '>=': return INT(x >= y);
+      }
+      throw new CError('Invalid operator ' + op + ' on a pointer', line);
+    }
+    const fl = isFloatT(a.t) || isFloatT(b.t);
+    const order = ['double', 'float', 'ulong', 'long', 'uint', 'int'];
+    let rt = 'int';
+    for (const o of order) if (a.t === o || b.t === o) { rt = o; break; }
+    if (rt === 'float') rt = 'double';
+    let x = a.v, y = b.v;
+    if (rt === 'uint') { x = x >>> 0; y = y >>> 0; }
+    if (rt === 'ulong') { x = x < 0 ? 2 ** 64 + x : x; y = y < 0 ? 2 ** 64 + y : y; }
+    let r;
+    switch (op) {
+      case '+': r = x + y; break; case '-': r = x - y; break; case '*': r = fl ? x * y : (rt === 'int' || rt === 'uint' ? Math.imul(x, y) : x * y); break;
+      case '/':
+        if (!fl && y === 0) throw new CError('Floating point exception: integer division by zero', line);
+        r = fl ? x / y : Math.trunc(x / y); break;
+      case '%':
+        if (fl) throw new CError('Invalid operands to % (floating point)', line);
+        if (y === 0) throw new CError('Floating point exception: integer modulo by zero', line);
+        r = x % y; break;
+      case '<<': r = rt === 'long' || rt === 'ulong' ? x * 2 ** y : x << y; break;
+      case '>>': r = rt === 'uint' ? x >>> y : (rt === 'long' || rt === 'ulong' ? Math.floor(x / 2 ** y) : x >> y); break;
+      case '&': r = x & y; break; case '|': r = x | y; break; case '^': r = x ^ y; break;
+      case '==': return INT(x === y); case '!=': return INT(x !== y);
+      case '<': return INT(x < y); case '>': return INT(x > y); case '<=': return INT(x <= y); case '>=': return INT(x >= y);
+      default: throw new CError('Unknown operator ' + op, line);
+    }
+    return V(rt, convScalar(rt, r));
+  }
+  function ptrNum(p) { return p.t === 'ptr' ? (p.base ? 1e9 + p.idx : (p.raw || 0)) : p.v; }
+  const truthy = v => v.t === 'ptr' ? !!v.base || !!v.raw : (v.t === 'struct' ? true : v.v !== 0);
+
+  function evalR(e) {
+    curLine = e.line || curLine;
+    switch (e.k) {
+      case 'num': return V(e.t, e.v);
+      case 'str': return strLit(e.v);
+      case 'id': {
+        const c = lookup(e.name);
+        if (c) return cellValue(c);
+        if (prog.funcs[e.name]) return { t: 'fn', name: e.name };
+        const consts = { NULL: NULLP(), stdin: V('FILE', 0), stdout: V('FILE', 1), stderr: V('FILE', 2), EOF: INT(-1), true: INT(1), false: INT(0), EXIT_SUCCESS: INT(0), EXIT_FAILURE: INT(1), RAND_MAX: INT(2147483647), _IONBF: INT(2), _IOLBF: INT(1), _IOFBF: INT(0), WNOHANG: INT(1) };
+        if (e.name in consts) return consts[e.name];
+        if (BUILTINS[e.name]) return { t: 'fn', name: e.name, builtin: true };
+        throw new CError("'" + e.name + "' undeclared (first use in this function)", e.line);
+      }
+      case 'assign': {
+        const cell = evalL(e.l);
+        if (cell.ro) throw new CError('Segmentation fault: writing to a string literal (read-only memory)', e.line);
+        let v = evalR(e.r);
+        if (e.op !== '=') v = arith(e.op.slice(0, -1), cellValue(cell), v, e.line);
+        return assignCell(cell, v, e.line);
+      }
+      case 'preinc': case 'postinc': {
+        const cell = evalL(e.e);
+        const old = cellValue(cell);
+        const nv = arith(e.op === '++' ? '+' : '-', old, INT(1), e.line);
+        assignCell(cell, nv, e.line);
+        return e.k === 'preinc' ? cellValue(cell) : old;
+      }
+      case 'bin': return arith(e.op, evalR(e.l), evalR(e.r), e.line);
+      case 'logic': {
+        const a = truthy(evalR(e.l));
+        if (e.op === '&&') return a ? INT(truthy(evalR(e.r))) : INT(0);
+        return a ? INT(1) : INT(truthy(evalR(e.r)));
+      }
+      case 'cond': return truthy(evalR(e.c)) ? evalR(e.a) : evalR(e.b);
+      case 'comma': evalR(e.a); return evalR(e.b);
+      case 'unary': {
+        if (e.op === '&') {
+          if (e.e.k === 'id' && !lookup(e.e.name) && prog.funcs[e.e.name]) return { t: 'fn', name: e.e.name };
+          if (e.e.k === 'unary' && e.e.op === '*') return evalR(e.e.e);
+          if (e.e.k === 'index') { const a = evalR(e.e.a), i = evalR(e.e.i); const p = a.t === 'ptr' ? a : i, n = a.t === 'ptr' ? i : a; return { t: 'ptr', base: p.base, idx: p.idx + Math.trunc(numOf(n)), ety: p.ety }; }
+          const cell = evalL(e.e);
+          if (!cell.box) { cell.box = [cell]; }
+          return { t: 'ptr', base: cell.box, idx: 0, ety: cell.ty };
+        }
+        if (e.op === '*') { const c = deref(evalR(e.e), e.line); return cellValue(c); }
+        const v = evalR(e.e);
+        if (e.op === '!') return INT(!truthy(v));
+        if (e.op === '-') { if (v.t === 'ptr') throw new CError('Invalid use of - on a pointer', e.line); const t = promote({ base: v.t, ptr: 0, arr: [] }).base; return V(t, convScalar(t, -v.v)); }
+        if (e.op === '+') return V(promote({ base: v.t, ptr: 0, arr: [] }).base, v.v);
+        if (e.op === '~') return V(v.t === 'uint' ? 'uint' : 'int', convScalar(v.t === 'uint' ? 'uint' : 'int', ~v.v));
+        break;
+      }
+      case 'cast': {
+        const v = evalR(e.e); const ty = e.ty;
+        if (ty.ptr > 0) { if (v.t === 'ptr') return Object.assign({}, v, { ety: Object.assign({}, ty, { ptr: ty.ptr - 1 }) }); return v.v === 0 ? NULLP() : { t: 'ptr', base: null, idx: 0, raw: v.v }; }
+        if (ty.base === 'void') return V('int', 0);
+        if (ty.base === 'struct') return v;
+        return V(ty.base, convScalar(ty.base, numOf(v)));
+      }
+      case 'sizeoft': return V('ulong', sizeOfType(resolveDims(e.ty)));
+      case 'sizeofe': {
+        let t = typeOfExpr(e.e);
+        if (e.e.k === 'id') { const c = lookup(e.e.name); if (c) t = c.ty; }
+        return V('ulong', sizeOfType(t));
+      }
+      case 'index': return cellValue(evalL(e));
+      case 'member': return cellValue(evalL(e));
+      case 'call': return callFn(e);
+    }
+    throw new CError('Cannot evaluate expression', e.line);
+  }
+
+  // ---- calls
+  function callFn(e) {
+    let name = null, fnv = null;
+    if (e.f.k === 'id' && !lookup(e.f.name)) name = e.f.name;
+    else { fnv = evalR(e.f); if (fnv.t === 'fn') name = fnv.name; else if (fnv.t === 'ptr' && fnv.fn) name = fnv.fn; else throw new CError('Called object is not a function', e.line); }
+    if (prog.funcs[name]) return callUser(prog.funcs[name], e.args.map(a => evalR(a)), e.line);
+    const b = BUILTINS[name];
+    if (!b) throw new CError("Implicit declaration of function '" + name + "' (not supported by this simulator)", e.line);
+    return b(e.args, e.line);
+  }
+  let depth = 0;
+  function callUser(fn, args, line) {
+    tick();
+    if (++depth > 400) throw new CError('Stack overflow: recursion too deep', line);
+    const scope = new Map();
+    fn.params.forEach((p, i) => {
+      if (p.varargs || !p.name) return;
+      const cell = makeCell(p.ty);
+      if (i < args.length) assignCell(cell, args[i], line);
+      scope.set(p.name, cell);
+    });
+    const saved = scopes; scopes = [scope];
+    const localCells = [];
+    scope.forEach(c => localCells.push(c));
+    let ret = V('int', 0);
+    try { execBlock(fn.body.body, scope, localCells); }
+    catch (x) { if (x instanceof Ret) ret = x.v; else { scopes = saved; depth--; throw x; } }
+    scopes = saved; depth--;
+    // mark addresses of locals as dangling
+    scope.forEach(c => localCells.push(c));
+    localCells.forEach(c => { if (c.box) c.box.dangling = true; if (c.val && c.val.t === 'arr') c.val.elems.dangling = true; });
+    if (ret && fn.ret && fn.ret.ptr === 0 && fn.ret.base !== 'void' && fn.ret.base !== 'struct' && ret.t !== 'ptr') ret = V(fn.ret.base, convScalar(fn.ret.base, ret.v));
+    return ret;
+  }
+
+  function doExit(code, flush) { throw new Exit(code, flush); }
+  function waitFor(target, statusArg, line) {
+    let kid = null;
+    const pending = myKids.filter(p => !reaped.has(p));
+    if (target > 0) kid = pending.includes(target) ? target : null;
+    else {
+      // the child that finishes first
+      let best = null;
+      for (const pid of pending) { const r = sim.ensure(pid); if (!best || r.exitClock < best.exitClock) best = r; }
+      kid = best ? best.pid : null;
+    }
+    if (kid === null) return INT(-1);
+    const r = sim.ensure(kid);
+    reaped.add(kid);
+    if (live()) r.reapedBy = proc.pid;
+    if (r.exitClock + 1 > clock) clock = r.exitClock + 1;
+    if (statusArg && statusArg.t === 'ptr' && statusArg.base) assignCell(deref(statusArg, line), INT(((r.exitCode & 255) << 8)), line);
+    return INT(kid);
+  }
+
+  const BUILTINS = {
+    printf(args, line) { const vals = args.slice(1).map(a => evalR(a)); let i = 0; const s = formatC(readStr(evalR(args[0])), () => vals[i++], readStr); writeOut('stdout', s); return INT(s.length); },
+    fprintf(args, line) {
+      const f = evalR(args[0]); const vals = args.slice(2).map(a => evalR(a)); let i = 0;
+      const s = formatC(readStr(evalR(args[1])), () => vals[i++], readStr);
+      writeOut(f.v === 2 ? 'stderr' : 'stdout', s); return INT(s.length);
+    },
+    sprintf(args, line) { const dst = evalR(args[0]); const vals = args.slice(2).map(a => evalR(a)); let i = 0; const s = formatC(readStr(evalR(args[1])), () => vals[i++], readStr); writeStr(dst, s, line); return INT(s.length); },
+    puts(args) { const s = readStr(evalR(args[0])) + '\n'; writeOut('stdout', s); return INT(s.length); },
+    putchar(args) { const c = numOf(evalR(args[0])); writeOut('stdout', String.fromCharCode(c & 255)); return INT(c); },
+    fputs(args) { const s = readStr(evalR(args[0])); const f = evalR(args[1]); writeOut(f.v === 2 ? 'stderr' : 'stdout', s); return INT(1); },
+    fflush(args) { flushOut(); return INT(0); },
+    setbuf(args) { const b = evalR(args[1]); if (b.t === 'ptr' && !b.base) { flushOut(); bufMode = 'none'; } return INT(0); },
+    setvbuf(args) { const m = numOf(evalR(args[2])); flushOut(); bufMode = m === 2 ? 'none' : m === 1 ? 'line' : 'full'; return INT(0); },
+    fork(args, line) {
+      tick();
+      if (k < proc.path.length) {
+        const r = proc.path[k]; k++;
+        if (r === 0) { myKids = []; reaped = new Set(); } else if (r > 0) myKids.push(r);
+        return INT(r);
+      }
+      // live fork
+      if (sim.procs.length >= cfg.maxProcs) { k++; proc.path.push(-1); sim.limitHit = true; return INT(-1); }
+      const id = identity();
+      const childPid = sim.nextPid++;
+      const child = {
+        pid: childPid, ppid: id.pid, path: proc.path.slice(0, k).concat([0]), birthLen: k + 1,
+        ids: proc.ids.concat([{ atK: k + 1, pid: childPid, ppid: id.pid }]), forkLine: line, forkNo: k + 1,
+        birthClock: clock, parentPid: id.pid
+      };
+      proc.path.push(childPid);
+      k++;
+      sim.addProc(child);
+      myKids.push(childPid);
+      return INT(childPid);
+    },
+    vfork(args, line) { return BUILTINS.fork(args, line); },
+    getpid() { return INT(identity().pid); },
+    getppid() { return INT(identity().ppid); },
+    wait(args, line) { tick(); const st = args.length ? evalR(args[0]) : null; return waitFor(-1, st, line); },
+    waitpid(args, line) { tick(); const pid = numOf(evalR(args[0])); const st = args.length > 1 ? evalR(args[1]) : null; return waitFor(pid > 0 ? pid : -1, st, line); },
+    sleep(args) { clock += Math.max(0, numOf(evalR(args[0]))) * 1e6; return INT(0); },
+    usleep(args) { clock += Math.max(0, numOf(evalR(args[0]))); return INT(0); },
+    exit(args) { flushOutForExit(); doExit(numOf(evalR(args[0])), true); },
+    _exit(args) { doExit(numOf(evalR(args[0])), false); },
+    _Exit(args) { doExit(numOf(evalR(args[0])), false); },
+    abort() { doExit(134, false); },
+    atexit(args) { atexitFns.push(evalR(args[0])); return INT(0); },
+    execl: execCall, execlp: execCall, execle: execCall, execv: execCall, execvp: execCall, execve: execCall,
+    system(args) { const s = readStr(evalR(args[0])); if (live()) { flushOut(); emitRaw('note', '[system: ' + s + ']\n'); } return INT(0); },
+    perror(args) { const s = readStr(evalR(args[0])); writeOut('stderr', s + ': error\n'); return INT(0); },
+    kill() { return INT(0); }, signal() { return INT(0); }, alarm() { return INT(0); }, pause() { return INT(0); },
+    abs(args) { return INT(Math.abs(numOf(evalR(args[0])))); }, labs(args) { return V('long', Math.abs(numOf(evalR(args[0])))); },
+    fabs(args) { return V('double', Math.abs(numOf(evalR(args[0])))); },
+    sqrt(args) { return V('double', Math.sqrt(numOf(evalR(args[0])))); },
+    pow(args) { return V('double', Math.pow(numOf(evalR(args[0])), numOf(evalR(args[1])))); },
+    floor(args) { return V('double', Math.floor(numOf(evalR(args[0])))); }, ceil(args) { return V('double', Math.ceil(numOf(evalR(args[0])))); },
+    log(args) { return V('double', Math.log(numOf(evalR(args[0])))); }, exp(args) { return V('double', Math.exp(numOf(evalR(args[0])))); },
+    sin(args) { return V('double', Math.sin(numOf(evalR(args[0])))); }, cos(args) { return V('double', Math.cos(numOf(evalR(args[0])))); },
+    rand() { sim.rand = (sim.rand * 1103515245 + 12345) & 0x7fffffff; return INT(sim.rand % 32768); },
+    srand(args) { sim.rand = numOf(evalR(args[0])) >>> 0; return INT(0); },
+    time() { return V('long', 1792915200); },
+    atoi(args) { return INT(parseInt(readStr(evalR(args[0])), 10) || 0); },
+    atof(args) { return V('double', parseFloat(readStr(evalR(args[0]))) || 0); },
+    strlen(args) { return V('ulong', readStr(evalR(args[0])).length); },
+    strcpy(args, line) { const d = evalR(args[0]); writeStr(d, readStr(evalR(args[1])), line); return d; },
+    strncpy(args, line) { const d = evalR(args[0]); const n = numOf(evalR(args[2])); writeStr(d, readStr(evalR(args[1])).slice(0, n), line); return d; },
+    strcat(args, line) { const d = evalR(args[0]); writeStr(d, readStr(d) + readStr(evalR(args[1])), line); return d; },
+    strcmp(args) { const a = readStr(evalR(args[0])), b = readStr(evalR(args[1])); return INT(a < b ? -1 : a > b ? 1 : 0); },
+    strncmp(args) { const n = numOf(evalR(args[2])); const a = readStr(evalR(args[0])).slice(0, n), b = readStr(evalR(args[1])).slice(0, n); return INT(a < b ? -1 : a > b ? 1 : 0); },
+    toupper(args) { const c = numOf(evalR(args[0])); return INT(c >= 97 && c <= 122 ? c - 32 : c); },
+    tolower(args) { const c = numOf(evalR(args[0])); return INT(c >= 65 && c <= 90 ? c + 32 : c); },
+    isdigit(args) { const c = numOf(evalR(args[0])); return INT(c >= 48 && c <= 57); },
+    isalpha(args) { const c = numOf(evalR(args[0])); return INT((c | 32) >= 97 && (c | 32) <= 122); },
+    isspace(args) { const c = numOf(evalR(args[0])); return INT([32, 9, 10, 11, 12, 13].includes(c)); },
+    isupper(args) { const c = numOf(evalR(args[0])); return INT(c >= 65 && c <= 90); },
+    islower(args) { const c = numOf(evalR(args[0])); return INT(c >= 97 && c <= 122); },
+    malloc(args) { return alloc(numOf(evalR(args[0]))); },
+    calloc(args) { return alloc(numOf(evalR(args[0])) * numOf(evalR(args[1]))); },
+    realloc(args, line) {
+      const p = evalR(args[0]); const n = numOf(evalR(args[1]));
+      if (!p.base) return alloc(n);
+      if (n === 0) { p.base.freed = true; return NULLP(); }
+      const q = alloc(n); for (let i = 0; i < Math.min(p.base.length, q.base.length); i++) q.base[i].val = p.base[i].val;
+      p.base.freed = true; return q;
+    },
+    free(args, line) { const p = evalR(args[0]); if (p.base) { if (p.base.freed) throw new CError('free(): double free detected', line); p.base.freed = true; } return INT(0); },
+    getchar() { if (stdinPos >= stdin.length) return INT(-1); return INT(stdin.charCodeAt(stdinPos++)); },
+    scanf(args, line) { return doScanf(readStr(evalR(args[0])), args.slice(1).map(a => evalR(a)), line); },
+    WIFEXITED() { return INT(1); },
+    WEXITSTATUS(args) { return INT((numOf(evalR(args[0])) >> 8) & 255); },
+    WIFSIGNALED() { return INT(0); },
+    assert(args, line) { if (!truthy(evalR(args[0]))) throw new CError('Assertion failed', line); return INT(0); },
+  };
+  function flushOutForExit() { /* handled in exit path */ }
+  function writeStr(dst, s, line) {
+    if (dst.t !== 'ptr' || !dst.base) throw new CError('Segmentation fault: writing a string through a NULL pointer', line);
+    for (let i = 0; i <= s.length; i++) {
+      const c = dst.base[dst.idx + i];
+      if (!c) throw new CError('Buffer overflow: string does not fit in the array', line);
+      if (c.ro) throw new CError('Segmentation fault: writing to a string literal', line);
+      c.val = V(c.ty.base === 'char' || c.ty.base === 'uchar' ? c.ty.base : 'char', i < s.length ? s.charCodeAt(i) : 0);
+    }
+  }
+  function execCall(args, line) {
+    tick();
+    const vals = args.map(a => evalR(a));
+    let parts = [];
+    for (const v of vals) {
+      if (v.t === 'ptr' && v.base && v.base[v.idx] && v.base[v.idx].val.t === 'ptr') { // argv array
+        for (let i = v.idx; i < v.base.length; i++) { const q = v.base[i].val; if (q.t !== 'ptr' || !q.base) break; parts.push(readStr(q)); }
+        break;
+      }
+      if (v.t === 'ptr' && !v.base) break;
+      parts.push(readStr(v));
+    }
+    const cmd = parts.slice(1).join(' ') || parts[0];
+    stdoutBuf = ''; // exec replaces the program: unflushed stdio is lost
+    if (live()) { emitRaw('note', '[exec: ' + cmd + ']\n'); proc.exec = cmd; }
+    doExit(0, false);
+  }
+  function doScanf(fmt, targets, line) {
+    let ti = 0, count = 0, i = 0;
+    const skipWs = () => { while (stdinPos < stdin.length && /\s/.test(stdin[stdinPos])) stdinPos++; };
+    while (i < fmt.length) {
+      const c = fmt[i];
+      if (/\s/.test(c)) { skipWs(); i++; continue; }
+      if (c !== '%') { if (stdinPos >= stdin.length) return INT(count || -1); if (stdin[stdinPos] !== c) return INT(count); stdinPos++; i++; continue; }
+      i++;
+      if (fmt[i] === '%') { skipWs(); if (stdin[stdinPos] === '%') { stdinPos++; i++; continue; } return INT(count); }
+      let suppress = false; if (fmt[i] === '*') { suppress = true; i++; }
+      let w = ''; while (/[0-9]/.test(fmt[i])) w += fmt[i++]; const width = w ? +w : Infinity;
+      let len = ''; while ('hlLqjz'.includes(fmt[i])) len += fmt[i++];
+      let conv = fmt[i++];
+      let set = null;
+      if (conv === '[') { let j = i; if (fmt[j] === '^') j++; if (fmt[j] === ']') j++; while (j < fmt.length && fmt[j] !== ']') j++; set = fmt.slice(i, j); i = j + 1; }
+      if (conv !== 'c' && conv !== '[' && conv !== 'n') skipWs();
+      if (stdinPos >= stdin.length && conv !== 'n') return INT(count === 0 ? -1 : count);
+      let text = '';
+      const take = re => { while (stdinPos < stdin.length && text.length < width && re(stdin[stdinPos], text)) text += stdin[stdinPos++]; };
+      let val = null;
+      if ('diuoxX'.includes(conv)) {
+        let base = conv === 'o' ? 8 : (conv === 'x' || conv === 'X') ? 16 : 10;
+        if (conv === 'i') {
+          // detect base
+          const rest = stdin.slice(stdinPos).replace(/^[+-]/, '');
+          if (/^0[xX][0-9a-fA-F]/.test(rest)) base = 16; else if (/^0/.test(rest)) base = 8; else base = 10;
+        }
+        const digit = ch => base === 16 ? /[0-9a-fA-F]/.test(ch) : base === 8 ? /[0-7]/.test(ch) : /[0-9]/.test(ch);
+        take((ch, t) => (t === '' && /[+-]/.test(ch)) || digit(ch) || (base === 16 && /[xX]/.test(ch) && /^[+-]?0$/.test(t)));
+        if (!/[0-9a-fA-F]/.test(text)) return INT(count);
+        val = parseInt(text.replace(/^([+-]?)0[xX]/, '$1'), base);
+        if (isNaN(val)) val = 0;
+        if (!suppress) { assignCell(deref(targets[ti++], line), V(len.includes('l') ? 'long' : 'int', val), line); count++; }
+      } else if ('feEgGaA'.includes(conv)) {
+        take((ch, t) => /[0-9.eE+-]/.test(ch) && !(/[+-]/.test(ch) && t !== '' && !/[eE]$/.test(t)));
+        const v = parseFloat(text); if (isNaN(v)) return INT(count);
+        if (!suppress) { assignCell(deref(targets[ti++], line), V('double', v), line); count++; }
+      } else if (conv === 'c') {
+        const n = width === Infinity ? 1 : width;
+        const s = stdin.slice(stdinPos, stdinPos + n); stdinPos += s.length;
+        if (!suppress) { const p = targets[ti++]; for (let j = 0; j < s.length; j++) assignCell(deref({ t: 'ptr', base: p.base, idx: p.idx + j }, line), INT(s.charCodeAt(j)), line); count++; }
+      } else if (conv === 's' || conv === '[') {
+        if (conv === 's') take(ch => !/\s/.test(ch));
+        else { const neg = set[0] === '^'; const chars = neg ? set.slice(1) : set; take(ch => neg ? !chars.includes(ch) : chars.includes(ch)); }
+        if (!text) return INT(count);
+        if (!suppress) { writeStr(targets[ti++], text, line); count++; }
+      } else if (conv === 'n') { if (!suppress) assignCell(deref(targets[ti++], line), INT(stdinPos), line); }
+    }
+    return INT(count);
+  }
+
+  // ---- statements
+  function execBlock(stmts, scope, localCells) {
+    scopes.push(scope);
+    try {
+      // switch-aware sequential execution handled in execSwitch
+      for (const s of stmts) exec(s, scope, localCells);
+    } finally { scopes.pop(); }
+  }
+  function exec(s, scope, localCells) {
+    curLine = s.line;
+    switch (s.k) {
+      case 'empty': return;
+      case 'block': { const sc = new Map(); execBlock(s.body, sc, localCells); sc.forEach(c => localCells && localCells.push(c)); return; }
+      case 'decl': tick(); for (const d of s.decls) { declare(d, scopes[scopes.length - 1]); } return;
+      case 'expr': tick(); evalR(s.e); return;
+      case 'if': tick(); if (truthy(evalR(s.cond))) exec(s.then, scope, localCells); else if (s.els) exec(s.els, scope, localCells); return;
+      case 'while':
+        while (true) {
+          tick(); if (!truthy(evalR(s.cond))) break;
+          try { exec(s.body, scope, localCells); } catch (x) { if (x instanceof Brk) break; if (x instanceof Cont) continue; throw x; }
+        }
+        return;
+      case 'do':
+        while (true) {
+          tick();
+          try { exec(s.body, scope, localCells); } catch (x) { if (x instanceof Brk) break; if (!(x instanceof Cont)) throw x; }
+          if (!truthy(evalR(s.cond))) break;
+        }
+        return;
+      case 'for': {
+        const sc = new Map(); scopes.push(sc);
+        try {
+          if (s.init) exec(s.init, sc, localCells);
+          while (true) {
+            tick();
+            if (s.cond && !truthy(evalR(s.cond))) break;
+            try { exec(s.body, sc, localCells); } catch (x) { if (x instanceof Brk) break; if (!(x instanceof Cont)) throw x; }
+            if (s.step) evalR(s.step);
+          }
+        } finally { scopes.pop(); }
+        return;
+      }
+      case 'switch': {
+        tick();
+        const v = numOf(evalR(s.e));
+        const body = s.body.k === 'block' ? s.body.body : [s.body];
+        let start = -1;
+        for (let i = 0; i < body.length; i++) if (body[i].k === 'case' && numOf(evalR(body[i].e)) === v) { start = i; break; }
+        if (start < 0) start = body.findIndex(b => b.k === 'default');
+        if (start < 0) return;
+        const sc = new Map(); scopes.push(sc);
+        try {
+          for (let i = start; i < body.length; i++) { if (body[i].k === 'case' || body[i].k === 'default') continue; exec(body[i], sc, localCells); }
+        } catch (x) { if (!(x instanceof Brk)) throw x; }
+        finally { scopes.pop(); }
+        return;
+      }
+      case 'case': case 'default': return;
+      case 'break': throw new Brk();
+      case 'continue': throw new Cont();
+      case 'return': tick(); throw new Ret(s.e ? evalR(s.e) : V('int', 0));
+    }
+    throw new CError('Unknown statement', s.line);
+  }
+
+  // ---- run
+  const result = { pid: proc.pid, exitCode: 0, error: null, errorLine: null, exitClock: 0 };
+  try {
+    scopes = [globalsEnv];
+    for (const g of prog.globals) for (const d of g.decls) declare(d, globalsEnv);
+    scopes = [];
+    const main = prog.funcs.main;
+    const args = [];
+    if (main.params.length >= 1) {
+      const argv = [cfg.progName || './a.out'].concat((cfg.args || '').trim() ? cfg.args.trim().split(/\s+/) : []);
+      args.push(INT(argv.length));
+      const elems = argv.map(a => ({ ty: { base: 'char', ptr: 1, arr: [] }, val: strLit(a) }));
+      elems.push({ ty: { base: 'char', ptr: 1, arr: [] }, val: NULLP() });
+      args.push({ t: 'ptr', base: elems, idx: 0, ety: { base: 'char', ptr: 1, arr: [] } });
+    }
+    let r;
+    try { r = callUser(main, args, main.line); }
+    catch (x) { if (x instanceof Exit) throw x; throw x; }
+    throw new Exit(numOf(r), true);
+  } catch (x) {
+    if (x instanceof Exit) {
+      if (x.flush) {
+        try {
+          for (let i = atexitFns.length - 1; i >= 0; i--) { const f = atexitFns[i]; if (f.t === 'fn' && prog.funcs[f.name]) callUser(prog.funcs[f.name], [], 0); }
+        } catch (y) { if (!(y instanceof Exit)) { result.error = y.message; result.errorLine = y.line; } }
+        flushOut();
+      }
+      result.exitCode = x.code & 255;
+    } else if (x instanceof CError) {
+      result.error = x.message; result.errorLine = x.line; result.exitCode = 139;
+      if (x.message.startsWith('Stopped after')) result.exitCode = null;
+      if (bufMode !== 'line' || true) { /* crash: buffered output is lost */ }
+    } else if (x instanceof Brk || x instanceof Cont) {
+      result.error = 'break/continue outside a loop'; result.errorLine = curLine;
+    } else if (x instanceof RangeError) {
+      result.error = 'Stack overflow (recursion too deep)'; result.errorLine = curLine;
+    } else { result.error = 'Internal error: ' + x.message; result.errorLine = curLine; }
+  }
+  result.exitClock = clock;
+  return result;
+}
+
+/* ---------------- Simulation driver ---------------- */
+function simulate(src, cfg) {
+  cfg = Object.assign({ bufMode: 'line', maxSteps: 400000, maxProcs: 128, stdin: '', args: '' }, cfg || {});
+  ptrIds = new WeakMap(); ptrNext = 0;
+  const toks = lex(src);
+  const prog = parse(toks);
+  const sim = {
+    cfg, events: [], seq: 0, procs: [], byPid: new Map(), nextPid: 1001, results: new Map(), running: new Set(), rand: 1, limitHit: false,
+    addProc(p) { p.children = []; this.procs.push(p); this.byPid.set(p.pid, p); const parent = this.byPid.get(p.parentPid); if (parent) parent.children.push(p.pid); },
+    ensure(pid) {
+      if (this.results.has(pid)) return this.results.get(pid);
+      if (this.running.has(pid)) return { pid, exitClock: 0, exitCode: 0 };
+      const p = this.byPid.get(pid);
+      this.running.add(pid);
+      const r = runProcess(prog, this, p);
+      this.running.delete(pid);
+      p.result = r; this.results.set(pid, r);
+      return r;
+    }
+  };
+  const root = { pid: 1000, ppid: 999, parentPid: null, path: [], birthLen: 0, ids: [{ atK: 0, pid: 1000, ppid: 999 }], birthClock: 0, forkLine: null };
+  sim.addProc(root);
+  for (let i = 0; i < sim.procs.length; i++) sim.ensure(sim.procs[i].pid);
+  // ordering: by clock, then by pid (parents usually run first after fork)
+  const events = sim.events.slice().sort((a, b) => a.clock - b.clock || a.pid - b.pid || a.seq - b.seq);
+  // orphan / zombie notes
+  for (const p of sim.procs) {
+    const par = sim.byPid.get(p.parentPid);
+    p.orphan = !!(par && par.result && p.result && par.result.exitClock < p.result.exitClock);
+    p.zombie = !!(par && p.result && par.result && !p.result.reapedBy && par.result.exitClock > p.result.exitClock + 0);
+  }
+  return { procs: sim.procs, events, limitHit: sim.limitHit, root };
+}
+
+const api = { simulate, formatC, lex, parse, CError };
+if (typeof module !== 'undefined') module.exports = api; else global.CFork = api;
+})(this);
+
+</script>
+<script>
+const EXAMPLES = [{"name": "Q1  fork(); fork(); fork();", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    fork();\n    fork();\n    fork();\n    printf(\"ITER\\n\");\n    printf(\"ITER\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q2  hello before each fork", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    printf(\"hello\\n\");\n    fork();\n    printf(\"hello\\n\");\n    fork();\n    printf(\"hello\\n\");\n    fork();\n    printf(\"hello\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q3  printf(\"A\") then fork", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    printf(\"A\");\n    fork();\n    printf(\"P\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q4  fork() && fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork() && fork();\n    printf(\"Able to\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q5  fork(); fork() && fork(); fork();", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() && fork();\n    fork();\n    printf(\"Got!!!\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q6  fork() + fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() + fork();\n    fork();\n    printf(\"doing!\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q7  fork() || fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() || fork();\n    fork();\n    printf(\"Really!!!\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q8  fork() && fork() || fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() && fork() || fork();\n    fork();\n    printf(\"guess\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q9  && then ||", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork() && fork();\n    fork() || fork();\n    printf(\"Hi\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q10 if (pid) ... else ...", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    int pid, pid2;\n    pid = fork();\n    if (pid) {\n        pid2 = fork();\n        printf(\"I\\n\");\n    }\n    else {\n        printf(\"C\\n\");\n        pid2 = fork();\n    }\n    return 0;\n}\n", "args": ""}, {"name": "Q11 fork in a for loop", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    pid_t childpid;\n    int i, n = 3;\n    for (i = 1; i < n; i++) {\n        childpid = fork();\n        if (childpid == -1)\n            break;\n    }\n    printf(\"i:%d\\n\", i);\n    return 0;\n}\n", "args": ""}, {"name": "Q12 x = add(fork(), fork())", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\npid_t add(pid_t a, pid_t b) {\n    return a + b;\n}\nint main(void) {\n    pid_t x = 10;\n    printf(\"%d\\n\", x);\n    x = add(fork(), fork());\n    printf(\"%d\\n\", x);\n    return 0;\n}\n", "args": ""}, {"name": "Q13 fork() inside an array initializer", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    int x[] = {10, 20, fork(), fork() + fork()};\n    int len = sizeof(x) / sizeof(int);\n    for (int i = 0; i < len; i++)\n        fprintf(stderr, \" %d \", x[i]);\n    printf(\"\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q14 if (fork()==0) in a function", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid show() {\n    if (fork() == 0)\n        printf(\"1\\n\");\n    if (fork() == 0)\n        printf(\"2\\n\");\n    if (fork() == 0)\n        printf(\"3\\n\");\n}\nint main(void) {\n    show();\n    return 0;\n}\n", "args": ""}, {"name": "Q15 else-if chain (fan)", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    if (fork() == 0)\n        printf(\"1\\n\");\n    else if (fork() == 0)\n        printf(\"2\\n\");\n    else if (fork() == 0)\n        printf(\"3\\n\");\n    else if (fork() == 0)\n        printf(\"4\\n\");\n    else\n        printf(\"5\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q16 p1 / p2 conditions", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    pid_t p1, p2;\n    p2 = 0;\n    p1 = fork();\n    if (p1 == 0)\n        p2 = fork();\n    if (p2 > 0)\n        fork();\n    printf(\"done\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q17 direct children of main", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    pid_t c1 = 1, c2 = 1;\n    c1 = fork();\n    if (c1 != 0)\n        c2 = fork();\n    if (c2 == 0) {\n        fork();\n        printf(\"1\\n\");\n    }\n    return 0;\n}\n", "args": ""}, {"name": "Q18 struct copy after fork", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nstruct stud {\n    int r;\n    int m;\n};\nint main() {\n    struct stud s1 = {1, 20};\n    pid_t pid = fork();\n    if (pid == 0) {\n        struct stud s1 = {2, 30};\n        printf(\"%d %d\\n\", s1.r, s1.m);\n        return 0;\n    }\n    else {\n        sleep(10);\n        printf(\"%d %d\\n\", s1.r, s1.m);\n        return 0;\n    }\n}\n", "args": ""}, {"name": "Q19 S / T / D / A", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    if (fork()) {\n        if (!fork()) {\n            fork();\n            printf(\"S \");\n        }\n        else {\n            printf(\"T \");\n        }\n    }\n    else {\n        printf(\"D \");\n    }\n    printf(\"A \");\n    return 0;\n}\n", "args": ""}, {"name": "Q20 fork when i % 3 == 0", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    int i;\n    for (i = 0; i < 12; i++) {\n        if (i % 3 == 0) {\n            fork();\n        }\n    }\n    printf(\"p\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q21 x = 5 + a[fork() || fork()]", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    int x;\n    int a[2] = {10, 20};\n    x = 5 + a[fork() || fork()];\n    printf(\"%d\\n\", x);\n    return 0;\n}\n", "args": ""}, {"name": "Q22 atexit order", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid X(void) { printf(\"1\\n\"); }\nvoid Y(void) { printf(\"2\\n\"); }\nvoid P(void) { printf(\"3\\n\"); }\nvoid Q(void) { printf(\"4\\n\"); }\nint main(void) {\n    atexit(X);\n    atexit(Y);\n    atexit(P);\n    atexit(Q);\n    return 0;\n}\n", "args": ""}, {"name": "Q25 build a given process tree", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid show(const char *name, pid_t ret) {\n    printf(\"%-3s PID=%d PPID=%d fork() returned %d\\n\", name, getpid(), getppid(), ret);\n}\nint main(void) {\n    pid_t r;\n    setvbuf(stdout, NULL, _IONBF, 0);      /* unbuffered: no duplicate lines */\n    printf(\"P   PID=%d PPID=%d (root, not created by fork here)\\n\", getpid(), getppid());\n    if ((r = fork()) == 0) { show(\"C1\", r); return 0; }\n    if ((r = fork()) == 0) {               /* C2: has two children */\n        show(\"C2\", r);\n        if ((r = fork()) == 0) { show(\"C4\", r); return 0; }\n        if ((r = fork()) == 0) {           /* C5 -> C6 -> C7 chain */\n            show(\"C5\", r);\n            if ((r = fork()) == 0) {\n                show(\"C6\", r);\n                if ((r = fork()) == 0) { show(\"C7\", r); return 0; }\n                wait(NULL); return 0;\n            }\n            wait(NULL); return 0;\n        }\n        while (wait(NULL) > 0) ;\n        return 0;\n    }\n    if ((r = fork()) == 0) { show(\"C3\", r); return 0; }\n    while (wait(NULL) > 0);                /* parent waits for all: no orphan */\n    return 0;\n}\n", "args": ""}, {"name": "Q26 Figure (a) and Figure (b)", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid info(void) { printf(\"PID=%d PPID=%d\\n\", getpid(), getppid()); }\n\n/* Figure (a): P -> A -> B; B has 3 children; the middle child has 1 child */\nvoid figure_a(void) {\n    info();                                   /* P */\n    if (fork() != 0) { wait(NULL); return; }\n    info();                                   /* A */\n    if (fork() != 0) { wait(NULL); return; }\n    info();                                   /* B */\n    for (int i = 0; i < 3; i++) {\n        if (fork() == 0) {\n            info();                           /* child i of B */\n            if (i == 1 && fork() == 0) { info(); return; }   /* grandchild */\n            wait(NULL);\n            return;\n        }\n    }\n    while (wait(NULL) > 0);\n}\n\n/* Figure (b): every node in the left column has a down child and a right leaf, 4 levels */\nvoid figure_b(void) {\n    info();                                   /* top node */\n    for (int level = 0; level < 4; level++) {\n        if (fork() == 0) { info(); return; }  /* right leaf */\n        if (fork() != 0) {                    /* parent waits, stops */\n            while (wait(NULL) > 0);\n            return;\n        }\n        info();                               /* down child continues */\n    }\n}\n\nint main(void) {\n    setvbuf(stdout, NULL, _IONBF, 0);     /* unbuffered output */\n    printf(\"--- Figure (a) ---\\n\");\n    if (fork() == 0) { figure_a(); return 0; }\n    wait(NULL);\n    printf(\"--- Figure (b) ---\\n\");\n    if (fork() == 0) { figure_b(); return 0; }\n    wait(NULL);\n    return 0;\n}\n", "args": ""}, {"name": "Q27 child changes its copy of nums", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\n#define SIZE 5\nint nums[SIZE] = {0, 1, 2, 3, 4};\nint main() {\n    int i;\n    pid_t pid;\n    pid = fork();\n    if (pid == 0) {\n        for (i = 0; i < SIZE; i++) {\n            nums[i] *= nums[i] * -i;\n            printf(\"CHILD:%d \", nums[i]); /* LINE X */\n        }\n    }\n    else if (pid > 0) {\n        wait(NULL);\n        for (i = 0; i < SIZE; i++)\n            printf(\"PARENT: %d \", nums[i]); /* LINE Y */\n    }\n    return 0;\n}\n", "args": ""}, {"name": "Q28 Fibonacci in the child (argument 7)", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(int argc, char *argv[]) {\n    if (argc != 2) { fprintf(stderr, \"Usage: %s n\\n\", argv[0]); return 1; }\n    int n = atoi(argv[1]);\n    if (n <= 0) { fprintf(stderr, \"n must be positive\\n\"); return 1; }\n    pid_t pid = fork();\n    if (pid < 0) { perror(\"fork\"); return 1; }\n    if (pid == 0) {                       /* child generates the sequence */\n        long a = 0, b = 1, t;\n        for (int i = 0; i < n; i++) {\n            printf(\"%ld \", a);\n            t = a + b; a = b; b = t;\n        }\n        printf(\"\\n\");\n        exit(0);\n    }\n    wait(NULL);                           /* parent waits for child */\n    printf(\"Child finished.\\n\");\n    return 0;\n}\n", "args": "7"}, {"name": "Q29 fork + execl + wait", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    int status;\n    pid_t pid = fork();\n    if (pid < 0) { perror(\"fork\"); return 1; }\n    if (pid == 0) {\n        /* compile first: gcc MulThree.c -o MulThree */\n        execl(\"./MulThree\", \"MulThree\", \"2\", \"3\", \"4\", (char *)NULL);\n        perror(\"execl\");                  /* reached only if execl fails */\n        exit(1);\n    }\n    pid_t done = wait(&status);\n    if (WIFEXITED(status))\n        printf(\"Child PID = %d, exit status = %d\\n\", done, WEXITSTATUS(status));\n    return 0;\n}\n", "args": ""}];
+const $ = id => document.getElementById(id);
+const codeEl = $('code'), gutter = $('gutter');
+let bufMode = 'line', view = 'all', selected = null, last = null, badLine = null;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+EXAMPLES.forEach((e, i) => { const o = document.createElement('option'); o.value = i; o.textContent = e.name; $('ex').appendChild(o); });
+const custom = document.createElement('option'); custom.value = 'mine'; custom.textContent = 'My code'; $('ex').appendChild(custom);
+
+function updateGutter() {
+  const n = codeEl.value.split('\n').length;
+  let s = '';
+  for (let i = 1; i <= n; i++) s += (i === badLine ? '<span class="bad">' + i + '</span>' : i) + '\n';
+  gutter.innerHTML = s;
+  gutter.scrollTop = codeEl.scrollTop;
+}
+codeEl.addEventListener('scroll', () => { gutter.scrollTop = codeEl.scrollTop; });
+codeEl.addEventListener('input', () => { badLine = null; updateGutter(); $('ex').value = 'mine'; store('forklab.code', codeEl.value); });
+codeEl.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = codeEl.selectionStart, en = codeEl.selectionEnd;
+    codeEl.setRangeText('    ', s, en, 'end');
+    codeEl.dispatchEvent(new Event('input'));
+  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); }
+  else if (e.key === 'Enter') {
+    const s = codeEl.selectionStart; const lineStart = codeEl.value.lastIndexOf('\n', s - 1) + 1;
+    const indent = codeEl.value.slice(lineStart, s).match(/^\s*/)[0];
+    const extra = /\{\s*$/.test(codeEl.value.slice(lineStart, s)) ? '    ' : '';
+    e.preventDefault(); codeEl.setRangeText('\n' + indent + extra, s, codeEl.selectionEnd, 'end'); codeEl.dispatchEvent(new Event('input'));
+  }
+});
+$('ex').addEventListener('change', () => {
+  const v = $('ex').value;
+  if (v === 'mine') { const c = load('forklab.code'); if (c) codeEl.value = c; }
+  else { codeEl.value = EXAMPLES[+v].code; $('args').value = EXAMPLES[+v].args || ''; }
+  badLine = null; updateGutter(); run();
+});
+function setMode(m) {
+  bufMode = m;
+  $('bm-line').setAttribute('aria-pressed', m === 'line');
+  $('bm-full').setAttribute('aria-pressed', m === 'full');
+  $('bmnote').innerHTML = m === 'line'
+    ? 'Terminal: printf output is flushed at every newline, like running <code>./a.out</code> directly.'
+    : 'File / pipe: printf output stays in a 4 KB buffer until exit, like <code>./a.out &gt; out.txt</code>. Text still in the buffer at fork() gets printed twice.';
+  run();
+}
+$('bm-line').onclick = () => setMode('line');
+$('bm-full').onclick = () => setMode('full');
+$('run').onclick = run;
+$('tab-all').onclick = () => { view = 'all'; $('tab-all').setAttribute('aria-selected', true); $('tab-plain').setAttribute('aria-selected', false); renderTerm(); };
+$('tab-plain').onclick = () => { view = 'plain'; $('tab-plain').setAttribute('aria-selected', true); $('tab-all').setAttribute('aria-selected', false); renderTerm(); };
+
+const PCOL = n => 'var(--p' + (n % 8) + ')';
+const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function run() {
+  badLine = null;
+  $('errbox').hidden = true;
+  let res;
+  try {
+    res = CFork.simulate(codeEl.value, { bufMode, stdin: $('stdin').value, args: $('args').value, progName: './a.out' });
+  } catch (e) {
+    badLine = e.line || null;
+    $('errbox').innerHTML = '<b>Compile error' + (e.line ? ' on line ' + e.line : '') + ':</b> ' + esc(e.message);
+    $('errbox').hidden = false;
+    updateGutter();
+    last = null; renderEmpty();
+    return;
+  }
+  last = res; selected = null;
+  const errs = res.procs.filter(p => p.result && p.result.error);
+  const msgs = [];
+  if (errs.length) {
+    const first = errs[0];
+    badLine = first.result.errorLine;
+    const n = errs.length;
+    msgs.push('<b>Runtime problem' + (first.result.errorLine ? ' on line ' + first.result.errorLine : '') + (n > 1 ? ' (in ' + n + ' processes)' : ' (process ' + first.pid + ')') + ':</b> ' + esc(first.result.error));
+  }
+  if (res.limitHit) msgs.push('<b>Stopped at 128 processes.</b> Later fork() calls returned -1 as if the system ran out of processes.');
+  if (msgs.length) { $('errbox').innerHTML = msgs.join('<br>'); $('errbox').hidden = false; }
+  updateGutter();
+  render();
+}
+
+function renderEmpty() {
+  ['s-procs', 's-forks', 's-kids', 's-lines'].forEach(id => $(id).textContent = '–');
+  $('tree').innerHTML = ''; $('term').textContent = ''; $('counts').innerHTML = ''; $('ptable').innerHTML = '';
+}
+
+function render() {
+  const r = last;
+  const idx = new Map(r.procs.map((p, i) => [p.pid, i]));
+  r.procs.forEach((p, i) => p.ci = i);
+  const text = r.events.map(e => e.text).join('');
+  const stdoutLines = r.events.filter(e => e.stream !== 'note').map(e => e.text).join('');
+  const lineCount = (stdoutLines.match(/\n/g) || []).length;
+  $('s-procs').textContent = r.procs.length;
+  $('s-forks').textContent = r.procs.length - 1;
+  $('s-kids').textContent = r.root.children.length;
+  $('s-lines').textContent = lineCount;
+  renderTree();
+  renderTerm();
+  renderCounts(stdoutLines);
+  renderTable();
+}
+
+function renderCounts(all) {
+  const m = new Map();
+  all.split('\n').forEach((l, i, arr) => { if (i === arr.length - 1 && l === '') return; m.set(l, (m.get(l) || 0) + 1); });
+  const box = $('counts'); box.innerHTML = '';
+  if (!m.size) { box.innerHTML = '<span class="note">Nothing was printed.</span>'; return; }
+  [...m.entries()].slice(0, 40).forEach(([l, c]) => {
+    const s = document.createElement('span'); s.className = 'chip';
+    s.innerHTML = esc(l === '' ? '(empty line)' : l) + '  <b>×' + c + '</b>';
+    box.appendChild(s);
+  });
+}
+
+function renderTerm() {
+  const t = $('term');
+  if (!last) { t.textContent = ''; return; }
+  const ev = last.events;
+  if (!ev.length) { t.innerHTML = '<span class="note-ev">(no output)</span>'; return; }
+  if (view === 'plain') { t.textContent = ev.filter(e => e.stream !== 'note').map(e => e.text).join(''); return; }
+  const byPid = new Map(last.procs.map(p => [p.pid, p]));
+  t.innerHTML = ev.map(e => {
+    const p = byPid.get(e.pid); const col = PCOL(p.ci);
+    const dim = selected !== null && selected !== e.pid ? ' dim' : '';
+    if (e.stream === 'note') return '<span class="note-ev' + dim + '" title="process ' + e.pid + '">' + esc(e.text) + '</span>';
+    return e.text.split(/(\n)/).map(seg => seg === '\n' ? '\n' : seg === '' ? '' : '<span class="ch' + dim + '" style="border-color:' + col + '" title="process ' + e.pid + (e.stream === 'stderr' ? ' (stderr)' : '') + '">' + esc(seg) + '</span>').join('');
+  }).join('');
+}
+
+function renderTree() {
+  const r = last, byPid = new Map(r.procs.map(p => [p.pid, p]));
+  const pos = new Map(); let leaf = 0, maxDepth = 0;
+  (function lay(pid, d) {
+    const p = byPid.get(pid); maxDepth = Math.max(maxDepth, d);
+    if (!p.children.length) { pos.set(pid, { x: leaf++, y: d }); return; }
+    p.children.forEach(c => lay(c, d + 1));
+    const xs = p.children.map(c => pos.get(c).x);
+    pos.set(pid, { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: d });
+  })(r.root.pid, 0);
+  const DX = 62, DY = 78, R = 19, PADX = 34, PADY = 30;
+  const W = Math.max(leaf, 1) * DX + PADX * 2 - DX + 40, H = maxDepth * DY + PADY * 2 + 26;
+  const X = pid => PADX + 20 + pos.get(pid).x * DX, Y = pid => PADY + pos.get(pid).y * DY;
+  const linesOf = pid => r.events.filter(e => e.pid === pid && e.stream !== 'note').map(e => e.text).join('').split('\n').length - 1;
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Process tree with ' + r.procs.length + ' processes">';
+  svg += '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>';
+  for (const p of r.procs) {
+    if (p.parentPid === null) continue;
+    const x1 = X(p.parentPid), y1 = Y(p.parentPid) + R, x2 = X(p.pid), y2 = Y(p.pid) - R - 3;
+    const dash = p.orphan ? ' stroke-dasharray="5 4"' : '';
+    svg += '<path d="M' + x1 + ',' + y1 + ' C' + x1 + ',' + (y1 + 26) + ' ' + x2 + ',' + (y2 - 26) + ' ' + x2 + ',' + y2 + '" fill="none" stroke="var(--muted)" stroke-width="1.6"' + dash + ' marker-end="url(#ah)"><title>fork() on line ' + (p.forkLine || '?') + '</title></path>';
+  }
+  for (const p of r.procs) {
+    const x = X(p.pid), y = Y(p.pid), col = PCOL(p.ci);
+    const dim = selected !== null && selected !== p.pid ? ' dim' : '';
+    const n = linesOf(p.pid);
+    const tip = 'PID ' + p.pid + (p.parentPid ? ', parent ' + p.parentPid + ', created by fork() on line ' + p.forkLine : ' (main process)') + '\nprinted ' + n + ' line' + (n === 1 ? '' : 's') + (p.zombie ? '\nzombie: exited but never reaped by wait()' : '') + (p.orphan ? '\norphan: its parent exited first' : '');
+    svg += '<g class="tnode' + dim + '" data-pid="' + p.pid + '" tabindex="0" role="button" aria-label="Process ' + p.pid + '"><title>' + esc(tip) + '</title>';
+    svg += '<circle cx="' + x + '" cy="' + y + '" r="' + R + '" fill="var(--panel)" stroke="' + col + '"/>';
+    svg += '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)">' + (p.parentPid === null ? 'main' : p.pid) + '</text>';
+    svg += '<text x="' + (x + R + 4) + '" y="' + (y + R - 2) + '" text-anchor="start" font-size="11" font-weight="600" fill="' + col + '">' + n + '</text>';
+    if (p.zombie) svg += '<text x="' + (x + R - 2) + '" y="' + (y - R + 6) + '" font-size="12" font-weight="700" fill="var(--warn)">Z</text>';
+    if (p.result && p.result.error) svg += '<text x="' + (x - R - 6) + '" y="' + (y - R + 6) + '" font-size="12" font-weight="700" fill="var(--danger)">!</text>';
+    svg += '</g>';
+  }
+  svg += '</svg>';
+  $('tree').innerHTML = svg;
+  $('tree').querySelectorAll('.tnode').forEach(g => {
+    const pick = () => { const pid = +g.dataset.pid; selected = selected === pid ? null : pid; renderTree(); renderTerm(); renderTable(); };
+    g.addEventListener('click', pick);
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+  });
+  $('treehint').textContent = selected === null ? 'Click a process to see only its output' : 'Showing process ' + selected + ' · click it again to show all';
+}
+
+function renderTable() {
+  const r = last, tb = $('ptable'); tb.innerHTML = '';
+  for (const p of r.procs) {
+    const out = r.events.filter(e => e.pid === p.pid).map(e => e.text).join('');
+    const tr = document.createElement('tr');
+    if (selected === p.pid) tr.className = 'sel';
+    let badges = '';
+    if (p.zombie) badges += '<span class="badge z">ZOMBIE</span>';
+    if (p.orphan) badges += '<span class="badge o">ORPHAN</span>';
+    if (p.exec) badges += '<span class="badge x">EXEC</span>';
+    if (p.result && p.result.error) badges += '<span class="badge e">ERROR</span>';
+    const exit = !p.result ? '–' : (p.result.exitCode === null ? 'still running' : p.result.error ? 'crashed' : String(p.result.exitCode));
+    tr.innerHTML = '<td class="mono"><span class="dot" style="background:' + PCOL(p.ci) + '"></span>' + (p.parentPid === null ? p.pid + ' (main)' : p.pid) + '</td>' +
+      '<td class="mono">' + (p.parentPid === null ? 'shell' : p.parentPid) + '</td>' +
+      '<td>' + (p.parentPid === null ? 'program start' : 'fork() on line ' + p.forkLine) + '</td>' +
+      '<td>' + badges + '<div class="out">' + (out ? esc(out.replace(/\n$/, '')) : '<span class="note">nothing</span>') + '</div>' + (p.result && p.result.error ? '<div class="note" style="color:var(--danger)">' + esc(p.result.error) + '</div>' : '') + '</td>' +
+      '<td class="mono">' + exit + '</td>';
+    tr.onclick = () => { selected = selected === p.pid ? null : p.pid; renderTree(); renderTerm(); renderTable(); };
+    tb.appendChild(tr);
+  }
+}
+
+// start
+const saved = load('forklab.code');
+codeEl.value = EXAMPLES[0].code;
+$('ex').value = '0';
+if (saved && saved.trim()) { codeEl.value = saved; $('ex').value = 'mine'; }
+updateGutter();
+run();
+</script>
