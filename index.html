@@ -1,5 +1,10 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fork Lab</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Simulate C programs that call fork(): step through them line by line and watch the process tree grow.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -41,6 +46,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -51,7 +57,6 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 h1 { margin: 0; font-size: 30px; line-height: 1.05; font-weight: 800; font-stretch: 78%; letter-spacing: -0.01em; text-wrap: balance; }
 h1 span { color: var(--accent); }
 .tag { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
-.course { font-family: var(--font-code); font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 .grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 18px; align-items: start; }
 @media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
@@ -61,16 +66,20 @@ h1 span { color: var(--accent); }
 .bd { padding: 14px; display: grid; gap: 12px; min-width: 0; }
 .left { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
 @media (max-width: 980px) { .left { position: static; } }
-label.fl { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.03em; }
+.fl { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.03em; }
 select, input[type=text], textarea.small {
   font: inherit; font-size: 14px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 100%; min-width: 0;
 }
-select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+#code::selection, .term ::selection { background: rgb(111 155 255 / .35); }
+.term, #code, .gutter { scrollbar-color: var(--code-muted) transparent; scrollbar-width: thin; }
+.treebox, .tablewrap, .left { scrollbar-color: var(--line) transparent; scrollbar-width: thin; }
 textarea.small { font-family: var(--font-code); font-size: 13px; resize: vertical; min-height: 38px; }
 .editor { display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--code-bg); border-radius: 8px; overflow: hidden; height: min(62vh, 560px); min-height: 260px; }
 .gutter { font-family: var(--font-code); font-size: 13px; line-height: 1.55; color: var(--code-muted); text-align: right; padding: 12px 8px 12px 12px; user-select: none; overflow: hidden; white-space: pre; }
 .gutter .bad { color: var(--danger); font-weight: 600; }
-#code { font-family: var(--font-code); font-size: 13px; line-height: 1.55; color: var(--code-ink); background: transparent; border: 0; resize: none; padding: 12px 12px 12px 6px; white-space: pre; overflow: auto; tab-size: 4; width: 100%; height: 100%; outline: none; caret-color: var(--p4); }
+#code { font-family: var(--font-code); font-size: 13px; line-height: 1.55; color: var(--code-ink); background: transparent; border: 0; resize: none; padding: 12px 12px 12px 6px; white-space: pre; overflow: auto; tab-size: 4; width: 100%; height: 100%; outline: none; caret-color: var(--p4); font-variant-ligatures: none; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
 .row > * { flex: 1 1 160px; min-width: 0; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel-2); }
@@ -90,8 +99,9 @@ textarea.small { font-family: var(--font-code); font-size: 13px; resize: vertica
 .err { background: var(--danger-bg); color: var(--danger); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
 .err code { font-family: var(--font-code); font-size: 13px; }
 .treebox { overflow-x: auto; padding: 8px 6px 4px; }
-.treebox svg { display: block; margin: 0 auto; }
-.tnode { cursor: pointer; }
+.treebox svg { display: block; margin: 0 auto; overflow: visible; }
+.tnode { cursor: pointer; outline: none; }
+.tnode:focus-visible circle:not(.halo) { stroke-width: 4.5; stroke-dasharray: none; }
 .tnode circle { stroke-width: 2.5; }
 .tnode text { font-family: var(--font-code); }
 .tnode.dim { opacity: 0.25; }
@@ -123,29 +133,120 @@ tr { cursor: pointer; }
 .foot { font-size: 12.5px; color: var(--muted); max-width: 90ch; }
 .foot b { color: var(--ink); }
 @media (prefers-reduced-motion: no-preference) { .tnode circle { transition: opacity .15s; } }
+/* Sections (PPWC / DPOS / My Code) and the question picker */
+.sections { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.sections a { display: grid; text-decoration: none; color: var(--muted); padding: 6px 14px; border-radius: 7px; font-weight: 700; font-size: 14px; line-height: 1.25; }
+.sections a small { font-weight: 500; font-size: 11.5px; }
+.sections a:hover { color: var(--ink); background: var(--panel-2); }
+.sections a[aria-current="page"] { background: var(--ink); color: var(--panel); }
+@media (max-width: 560px) { .sections { width: 100%; } .sections a { flex: 1; text-align: center; padding: 6px 8px; } .sections a small { display: none; } }
+.qchips { display: flex; flex-wrap: wrap; gap: 5px; }
+.qchips a { font-family: var(--font-code); font-size: 12.5px; min-width: 36px; text-align: center; text-decoration: none; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; }
+.qchips a:hover { border-color: var(--accent); }
+.qchips a[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.qcard { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; }
+.qcard .qt { font-weight: 700; font-size: 14px; }
+.qcard p { margin: 0; font-size: 13.5px; color: var(--muted); }
+.qacts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.btn { font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.warn { color: var(--warn); border-color: var(--warn); }
+@media (pointer: coarse) { .btn, .seg button, .tabs button { min-height: 40px; } .qchips a { min-height: 34px; display: inline-grid; place-items: center; } }
+.btn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
+.edited { font-size: 12px; color: var(--warn); font-weight: 600; }
+.run.alt { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
+.run svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* Step debugger: the editor is always dark, so it uses the dark-theme process colours */
+.editor { --p0: #6f9bff; --p1: #ff8a5c; --p2: #3fcf9f; --p3: #b98cff; --p4: #f0bf4a; --p5: #ff6fae; --p6: #5cc2ea; --p7: #a9cc4a; }
+.codewrap { position: relative; min-width: 0; height: 100%; }
+.hl { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+#code { position: relative; z-index: 1; }
+.editor.debugging #code { caret-color: transparent; }
+.hl .ln { position: absolute; left: 0; right: 0; background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: inset 3px 0 0 var(--c); }
+.hl .tags { position: absolute; display: flex; gap: 3px; align-items: center; }
+.hl .pt { font-family: var(--font-code); font-size: 10px; line-height: 1; padding: 2px 4px; border-radius: 3px; border: 1px solid var(--c); color: var(--c); background: var(--code-bg); }
+.hl .pt.on { background: var(--c); color: var(--code-bg); font-weight: 600; }
+.hl .call { position: absolute; border-radius: 3px; outline: 2px solid var(--c); background: color-mix(in srgb, var(--c) 30%, transparent); }
+.dbg { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--panel-2); }
+.dbg-ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dbg-ctl .sp { flex: 1 1 0; }
+.dbg-ctl select { width: auto; padding: 4px 6px; font-size: 13px; }
+.dbg input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+.dbg-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dbg-cap { font-size: 14px; min-height: 2.9em; }
+.dbg-cap code { font-family: var(--font-code); font-size: 12.5px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; white-space: pre-wrap; }
+.dbg-cap .pid { font-family: var(--font-code); }
+.dbg-cap .muted { color: var(--muted); }
+@media (max-width: 980px) {
+  body.debugging { padding-bottom: 230px; }
+  body.debugging .dbg { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; border-radius: 12px 12px 0 0; box-shadow: 0 -6px 24px rgb(0 0 0 / .2);
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+}
+body.debugging #inputs, body.debugging #bmnote, body.debugging #qcard { display: none; }
+@media (min-width: 981px) {
+  body.debugging .left { max-height: calc(100vh - 24px); overflow-y: auto; }
+  body.debugging .editor { height: min(46vh, 460px); }
+}
+.tnode.now circle { stroke-width: 4.5; }
+.tnode.now .halo { fill: none; stroke-width: 7; opacity: .25; }
+.tnode.done circle:not(.halo) { stroke-dasharray: 3 3; }
+.tnode.done text { opacity: .6; }
+.tedge.new { stroke: var(--accent); stroke-width: 2.8; }
+.tlabel { font-family: var(--font-code); font-size: 10.5px; fill: var(--muted); }
+.tlabel.new { fill: var(--accent); font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) {
+  .tedge.new { stroke-dasharray: 300; stroke-dashoffset: 300; animation: draw .45s ease-out forwards; }
+  .tnode.born { animation: pop .4s ease-out; transform-box: fill-box; transform-origin: center; }
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pop { from { transform: scale(.2); opacity: 0; } }
+.state { font-size: 12px; font-weight: 600; }
+.state.st-run { color: var(--p2); } .state.st-wait { color: var(--warn); } .state.st-done { color: var(--muted); }
+td .buf { font-family: var(--font-code); font-size: 12px; color: var(--warn); white-space: pre; }
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header class="top">
     <div>
-      <div class="course">CSE 3544 · Processes in UNIX</div>
       <h1>Fork <span>Lab</span></h1>
-      <p class="tag">Paste a C program that uses fork(). Every process is simulated, so you see the process tree, what each process prints, and the full output.</p>
+      <p class="tag">Paste a C program that uses fork(). Every process is simulated, so you see the process tree, what each process prints, and the full output. Step through it to watch the tree grow one fork() at a time.</p>
     </div>
+    <nav class="sections" aria-label="Sections">
+      <a href="#ppwc" id="nav-ppwc">PPWC<small>Practical Programming with C</small></a>
+      <a href="#dpos" id="nav-dpos">DPOS<small>Design Principles of OS</small></a>
+      <a href="#mine" id="nav-mine">My Code<small>Your own programs</small></a>
+    </nav>
   </header>
 
   <div class="grid">
     <section class="panel left" aria-label="Program">
-      <div class="hd"><h2>Program</h2><span class="hint">Tab indents · Ctrl/⌘ + Enter runs</span></div>
+      <div class="hd"><h2 id="ptitle">Program</h2><span class="hint">Tab indents · Ctrl/⌘ + Enter runs</span></div>
       <div class="bd">
-        <label class="fl" for="ex">Load an Assignment 06 example
-          <select id="ex"></select>
-        </label>
-        <div class="editor">
-          <div class="gutter" id="gutter" aria-hidden="true">1</div>
-          <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="C source code"></textarea>
+        <div id="qpick">
+          <div class="fl" id="qlabel" style="margin-bottom:6px">Pick a question</div>
+          <nav class="qchips" id="qchips" aria-label="Questions"></nav>
         </div>
-        <div class="row">
+        <div class="qcard" id="qcard">
+          <div class="qt" id="qtitle"></div>
+          <p id="qprompt"></p>
+          <div class="qacts" id="qacts">
+            <span class="edited" id="qedited" hidden>Edited</span>
+            <button type="button" class="btn" id="q-reset" hidden>Reset to the original</button>
+            <button type="button" class="btn" id="q-copy">Open in My Code</button>
+          </div>
+        </div>
+        <div class="editor" id="editor">
+          <div class="gutter" id="gutter" aria-hidden="true">1</div>
+          <div class="codewrap">
+            <div class="hl" id="hl" aria-hidden="true"></div>
+            <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="C source code"></textarea>
+          </div>
+        </div>
+        <div class="row" id="inputs">
           <label class="fl" for="args">Command-line arguments
             <input type="text" id="args" placeholder="e.g. 7">
           </label>
@@ -161,9 +262,27 @@ tr { cursor: pointer; }
               <button type="button" id="bm-full" aria-pressed="false">File / pipe</button>
             </div>
           </div>
+          <button class="run alt" id="debug" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h2v12H2zM6 2l8 6-8 6z"/></svg>Step through</button>
           <button class="run" id="run" type="button">Run <kbd>Ctrl ↵</kbd></button>
         </div>
         <p class="note" id="bmnote">Terminal: printf output is flushed at every newline, like running <code>./a.out</code> directly.</p>
+        <div class="dbg" id="dbg" hidden>
+          <div class="dbg-ctl">
+            <button type="button" class="btn" id="d-start" title="Back to the start (Home)" aria-label="Back to the start"><svg viewBox="0 0 16 16"><path d="M2 2h2v12H2zM14 2v12L5 8z"/></svg></button>
+            <button type="button" class="btn" id="d-back" title="Step back (←)"><svg viewBox="0 0 16 16"><path d="M12 2v12L3 8z"/></svg>Back</button>
+            <button type="button" class="btn" id="d-step" title="Step (→)">Step<svg viewBox="0 0 16 16"><path d="M4 2v12l9-6z"/></svg></button>
+            <button type="button" class="btn" id="d-fork" title="Jump to the next fork() (Shift + →)">Next fork<svg viewBox="0 0 16 16"><path d="M1 2v12l7-6zM8 2v12l6-6zM14 2h1.5v12H14z"/></svg></button>
+            <button type="button" class="btn" id="d-play" title="Play / pause (Space)"><svg viewBox="0 0 16 16"><path d="M4 2v12l10-6z"/></svg>Play</button>
+            <select id="d-speed" aria-label="Playback speed">
+              <option value="1200">0.5×</option><option value="600" selected>1×</option><option value="300">2×</option><option value="120">5×</option>
+            </select>
+            <span class="sp"></span>
+            <button type="button" class="btn" id="d-stop" title="Leave step mode (Esc)">Exit</button>
+          </div>
+          <input type="range" id="d-slider" min="0" max="0" value="0" aria-label="Step">
+          <div class="dbg-meta"><span id="d-pos">Start</span><span id="d-forks"></span></div>
+          <div class="dbg-cap" id="d-cap" aria-live="polite"></div>
+        </div>
       </div>
     </section>
 
@@ -182,7 +301,7 @@ tr { cursor: pointer; }
       <section class="panel" aria-label="Process tree">
         <div class="hd"><h2>Process tree</h2><span class="hint" id="treehint">Click a process to see only its output</span></div>
         <div class="treebox" id="tree"></div>
-        <div class="legend">
+        <div class="legend" id="legend">
           <span><i></i>created by fork()</span>
           <span><i class="dash"></i>orphan: parent exited first</span>
           <span><b style="color:var(--warn)">Z</b> zombie: never reaped by wait()</span>
@@ -211,7 +330,7 @@ tr { cursor: pointer; }
       <section class="panel" aria-label="Processes">
         <div class="hd"><h2>Processes</h2><span class="hint">PIDs are simulated, starting at 1000</span></div>
         <div class="tablewrap"><table>
-          <thead><tr><th>PID</th><th>Parent</th><th>Created at</th><th>Printed</th><th>Exit</th></tr></thead>
+          <thead><tr><th>PID</th><th>Parent</th><th>Created at</th><th>Printed</th><th id="th-exit">Exit</th></tr></thead>
           <tbody id="ptable"></tbody>
         </table></div>
       </section>
@@ -238,7 +357,7 @@ const ESC = { n: 10, t: 9, r: 13, '0': 0, '\\': 92, "'": 39, '"': 34, a: 7, b: 8
 function preprocess(src) {
   src = src.replace(/\r\n?/g, '\n');
   src = src.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/−/g, '-');
-  // remove comments but keep line count
+  // remove comments but keep line and column positions
   let out = '', i = 0;
   while (i < src.length) {
     const c = src[i], d = src[i + 1];
@@ -247,7 +366,7 @@ function preprocess(src) {
       while (i < src.length && src[i] !== q && src[i] !== '\n') { if (src[i] === '\\') { out += src[i++]; } out += src[i++]; }
       if (i < src.length) out += src[i++];
     } else if (c === '/' && d === '/') { while (i < src.length && src[i] !== '\n') i++; }
-    else if (c === '/' && d === '*') { i += 2; while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) { if (src[i] === '\n') out += '\n'; i++; } i += 2; }
+    else if (c === '/' && d === '*') { out += '  '; i += 2; while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) { out += src[i] === '\n' ? '\n' : ' '; i++; } out += '  '; i += 2; }
     else { out += c; i++; }
   }
   const defines = {};
@@ -265,18 +384,19 @@ function preprocess(src) {
 
 function lex(src) {
   const { text, defines } = preprocess(src);
-  const toks = []; let i = 0, line = 1;
-  const push = (type, value) => toks.push({ type, value, line });
+  const toks = []; let i = 0, line = 1, lineStart = 0, start = 0;
+  const push = (type, value) => toks.push({ type, value, line, col: start - lineStart + 1 });
   while (i < text.length) {
     const c = text[i];
-    if (c === '\n') { line++; i++; continue; }
+    if (c === '\n') { line++; i++; lineStart = i; continue; }
     if (/\s/.test(c)) { i++; continue; }
+    start = i;
     if (/[A-Za-z_]/.test(c)) {
       let j = i; while (j < text.length && /\w/.test(text[j])) j++;
       const w = text.slice(i, j); i = j;
       if (defines[w] !== undefined && defines[w] !== '') {
         const sub = lex(defines[w]); sub.pop();
-        sub.forEach(t => { t.line = line; toks.push(t); });
+        sub.forEach(t => { t.line = line; t.col = start - lineStart + 1; toks.push(t); });
       } else push('id', w);
       continue;
     }
@@ -577,8 +697,9 @@ function parse(toks) {
       if (at('(')) {
         next(); const args = [];
         if (!at(')')) { do { args.push(parseAssign()); } while (at(',') && next()); }
-        expect(')');
-        e = { k: 'call', f: e, args, line };
+        const close = expect(')');
+        // col..endCol spans `name(...)` so the debugger can mark which call on a line is running
+        e = { k: 'call', f: e, args, line, col: e.col, endCol: e.line === close.line && e.col ? close.col + 1 : null };
       } else if (at('[')) { next(); const i = parseExpr(); expect(']'); e = { k: 'index', a: e, i, line }; }
       else if (at('.')) { next(); e = { k: 'member', e, name: next().value, line }; }
       else if (at('->')) { next(); e = { k: 'member', e: { k: 'unary', op: '*', e, line }, name: next().value, line }; }
@@ -591,7 +712,7 @@ function parse(toks) {
     if (t.type === 'num') return { k: 'num', v: t.value.v, t: t.value.t, line };
     if (t.type === 'char') return { k: 'num', v: t.value, t: 'int', isChar: true, line };
     if (t.type === 'str') return { k: 'str', v: t.value, line };
-    if (t.type === 'id') return { k: 'id', name: t.value, line };
+    if (t.type === 'id') return { k: 'id', name: t.value, line, col: t.col };
     if (t.type === 'op' && t.value === '(') { const e = parseExpr(); expect(')'); return e; }
     throw new CError('Unexpected "' + (t.value || t.type) + '"', line);
   }
@@ -811,7 +932,13 @@ function runProcess(prog, sim, proc) {
 
   function emitRaw(stream, text) {
     if (!text) return;
-    if (live()) sim.events.push({ clock, seq: sim.seq++, pid: proc.pid, stream, text });
+    if (live()) sim.events.push({ kind: 'out', clock, seq: sim.seq++, pid: proc.pid, stream, text });
+  }
+  // debugger trace: what this process did and when (only once it is alive, not while replaying its parent's past)
+  function rec(kind, o) {
+    if (!live()) return;
+    if (sim.trace.length >= cfg.maxTrace) { sim.traceCut = true; return; }
+    sim.trace.push(Object.assign({ kind, clock, seq: sim.seq++, pid: proc.pid }, o));
   }
   function writeOut(stream, text) {
     if (stream === 'stderr' || bufMode === 'none') { if (stream !== 'stderr') flushOut(); emitRaw(stream, text); return; }
@@ -820,12 +947,14 @@ function runProcess(prog, sim, proc) {
       const j = stdoutBuf.lastIndexOf('\n');
       if (j >= 0) { emitRaw('stdout', stdoutBuf.slice(0, j + 1)); stdoutBuf = stdoutBuf.slice(j + 1); }
     } else if (stdoutBuf.length >= 4096) flushOut();
+    rec('buf', { text: stdoutBuf });
   }
-  function flushOut() { if (stdoutBuf) { emitRaw('stdout', stdoutBuf); stdoutBuf = ''; } }
+  function flushOut() { if (stdoutBuf) { emitRaw('stdout', stdoutBuf); stdoutBuf = ''; rec('buf', { text: '' }); } }
   function tick() {
     steps++; clock++;
     if (steps > cfg.maxSteps) throw new CError('Stopped after ' + cfg.maxSteps.toLocaleString() + ' steps: this process looks like an infinite loop', curLine);
   }
+  function step(line) { tick(); rec('stmt', { line }); }
 
   // ---- environment
   const globalsEnv = new Map();
@@ -1188,7 +1317,7 @@ function runProcess(prog, sim, proc) {
     if (prog.funcs[name]) return callUser(prog.funcs[name], e.args.map(a => evalR(a)), e.line);
     const b = BUILTINS[name];
     if (!b) throw new CError("Implicit declaration of function '" + name + "' (not supported by this simulator)", e.line);
-    return b(e.args, e.line);
+    return b(e.args, e.line, e);
   }
   let depth = 0;
   function callUser(fn, args, line) {
@@ -1217,7 +1346,13 @@ function runProcess(prog, sim, proc) {
 
   function doExit(code, flush) { throw new Exit(code, flush); }
   function waitFor(target, statusArg, line) {
+    const r = waitKid(target, statusArg, line);
+    rec('wait', { line, kid: r.v > 0 ? r.v : null });
+    return r;
+  }
+  function waitKid(target, statusArg, line) {
     let kid = null;
+    rec('waitbeg', { line });
     const pending = myKids.filter(p => !reaped.has(p));
     if (target > 0) kid = pending.includes(target) ? target : null;
     else {
@@ -1249,7 +1384,7 @@ function runProcess(prog, sim, proc) {
     fflush(args) { flushOut(); return INT(0); },
     setbuf(args) { const b = evalR(args[1]); if (b.t === 'ptr' && !b.base) { flushOut(); bufMode = 'none'; } return INT(0); },
     setvbuf(args) { const m = numOf(evalR(args[2])); flushOut(); bufMode = m === 2 ? 'none' : m === 1 ? 'line' : 'full'; return INT(0); },
-    fork(args, line) {
+    fork(args, line, call) {
       tick();
       if (k < proc.path.length) {
         const r = proc.path[k]; k++;
@@ -1257,7 +1392,8 @@ function runProcess(prog, sim, proc) {
         return INT(r);
       }
       // live fork
-      if (sim.procs.length >= cfg.maxProcs) { k++; proc.path.push(-1); sim.limitHit = true; return INT(-1); }
+      const at = { line, col: call ? call.col : null, endCol: call ? call.endCol : null };
+      if (sim.procs.length >= cfg.maxProcs) { rec('fork', Object.assign({ child: null }, at)); k++; proc.path.push(-1); sim.limitHit = true; return INT(-1); }
       const id = identity();
       const childPid = sim.nextPid++;
       const child = {
@@ -1265,6 +1401,7 @@ function runProcess(prog, sim, proc) {
         ids: proc.ids.concat([{ atK: k + 1, pid: childPid, ppid: id.pid }]), forkLine: line, forkNo: k + 1,
         birthClock: clock, parentPid: id.pid
       };
+      rec('fork', Object.assign({ child: childPid }, at));
       proc.path.push(childPid);
       k++;
       sim.addProc(child);
@@ -1352,7 +1489,7 @@ function runProcess(prog, sim, proc) {
       parts.push(readStr(v));
     }
     const cmd = parts.slice(1).join(' ') || parts[0];
-    stdoutBuf = ''; // exec replaces the program: unflushed stdio is lost
+    stdoutBuf = ''; rec('buf', { text: '' }); // exec replaces the program: unflushed stdio is lost
     if (live()) { emitRaw('note', '[exec: ' + cmd + ']\n'); proc.exec = cmd; }
     doExit(0, false);
   }
@@ -1420,18 +1557,18 @@ function runProcess(prog, sim, proc) {
     switch (s.k) {
       case 'empty': return;
       case 'block': { const sc = new Map(); execBlock(s.body, sc, localCells); sc.forEach(c => localCells && localCells.push(c)); return; }
-      case 'decl': tick(); for (const d of s.decls) { declare(d, scopes[scopes.length - 1]); } return;
-      case 'expr': tick(); evalR(s.e); return;
-      case 'if': tick(); if (truthy(evalR(s.cond))) exec(s.then, scope, localCells); else if (s.els) exec(s.els, scope, localCells); return;
+      case 'decl': step(s.line); for (const d of s.decls) { declare(d, scopes[scopes.length - 1]); } return;
+      case 'expr': step(s.line); evalR(s.e); return;
+      case 'if': step(s.line); if (truthy(evalR(s.cond))) exec(s.then, scope, localCells); else if (s.els) exec(s.els, scope, localCells); return;
       case 'while':
         while (true) {
-          tick(); if (!truthy(evalR(s.cond))) break;
+          step(s.line); if (!truthy(evalR(s.cond))) break;
           try { exec(s.body, scope, localCells); } catch (x) { if (x instanceof Brk) break; if (x instanceof Cont) continue; throw x; }
         }
         return;
       case 'do':
         while (true) {
-          tick();
+          step(s.line);
           try { exec(s.body, scope, localCells); } catch (x) { if (x instanceof Brk) break; if (!(x instanceof Cont)) throw x; }
           if (!truthy(evalR(s.cond))) break;
         }
@@ -1441,7 +1578,7 @@ function runProcess(prog, sim, proc) {
         try {
           if (s.init) exec(s.init, sc, localCells);
           while (true) {
-            tick();
+            step(s.line);
             if (s.cond && !truthy(evalR(s.cond))) break;
             try { exec(s.body, sc, localCells); } catch (x) { if (x instanceof Brk) break; if (!(x instanceof Cont)) throw x; }
             if (s.step) evalR(s.step);
@@ -1450,7 +1587,7 @@ function runProcess(prog, sim, proc) {
         return;
       }
       case 'switch': {
-        tick();
+        step(s.line);
         const v = numOf(evalR(s.e));
         const body = s.body.k === 'block' ? s.body.body : [s.body];
         let start = -1;
@@ -1467,7 +1604,7 @@ function runProcess(prog, sim, proc) {
       case 'case': case 'default': return;
       case 'break': throw new Brk();
       case 'continue': throw new Cont();
-      case 'return': tick(); throw new Ret(s.e ? evalR(s.e) : V('int', 0));
+      case 'return': step(s.line); throw new Ret(s.e ? evalR(s.e) : V('int', 0));
     }
     throw new CError('Unknown statement', s.line);
   }
@@ -1511,17 +1648,18 @@ function runProcess(prog, sim, proc) {
     } else { result.error = 'Internal error: ' + x.message; result.errorLine = curLine; }
   }
   result.exitClock = clock;
+  rec('exit', { code: result.exitCode, error: result.error, line: result.errorLine });
   return result;
 }
 
 /* ---------------- Simulation driver ---------------- */
 function simulate(src, cfg) {
-  cfg = Object.assign({ bufMode: 'line', maxSteps: 400000, maxProcs: 128, stdin: '', args: '' }, cfg || {});
+  cfg = Object.assign({ bufMode: 'line', maxSteps: 400000, maxProcs: 128, maxTrace: 20000, stdin: '', args: '' }, cfg || {});
   ptrIds = new WeakMap(); ptrNext = 0;
   const toks = lex(src);
   const prog = parse(toks);
   const sim = {
-    cfg, events: [], seq: 0, procs: [], byPid: new Map(), nextPid: 1001, results: new Map(), running: new Set(), rand: 1, limitHit: false,
+    cfg, events: [], trace: [], traceCut: false, seq: 0, procs: [], byPid: new Map(), nextPid: 1001, results: new Map(), running: new Set(), rand: 1, limitHit: false,
     addProc(p) { p.children = []; this.procs.push(p); this.byPid.set(p.pid, p); const parent = this.byPid.get(p.parentPid); if (parent) parent.children.push(p.pid); },
     ensure(pid) {
       if (this.results.has(pid)) return this.results.get(pid);
@@ -1538,14 +1676,17 @@ function simulate(src, cfg) {
   sim.addProc(root);
   for (let i = 0; i < sim.procs.length; i++) sim.ensure(sim.procs[i].pid);
   // ordering: by clock, then by pid (parents usually run first after fork)
-  const events = sim.events.slice().sort((a, b) => a.clock - b.clock || a.pid - b.pid || a.seq - b.seq);
+  const byTime = (a, b) => a.clock - b.clock || a.pid - b.pid || a.seq - b.seq;
+  const events = sim.events.slice().sort(byTime);
+  // the debugger walks this: every step, fork, wait, exit and piece of output, in the same order as the output
+  const timeline = sim.events.concat(sim.trace).sort(byTime);
   // orphan / zombie notes
   for (const p of sim.procs) {
     const par = sim.byPid.get(p.parentPid);
     p.orphan = !!(par && par.result && p.result && par.result.exitClock < p.result.exitClock);
     p.zombie = !!(par && p.result && par.result && !p.result.reapedBy && par.result.exitClock > p.result.exitClock + 0);
   }
-  return { procs: sim.procs, events, limitHit: sim.limitHit, root };
+  return { procs: sim.procs, events, timeline, traceCut: sim.traceCut, limitHit: sim.limitHit, root };
 }
 
 const api = { simulate, formatC, lex, parse, CError };
@@ -1555,16 +1696,164 @@ if (typeof module !== 'undefined') module.exports = api; else global.CFork = api
 </script>
 <script>
 const EXAMPLES = [{"name": "Q1  fork(); fork(); fork();", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    fork();\n    fork();\n    fork();\n    printf(\"ITER\\n\");\n    printf(\"ITER\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q2  hello before each fork", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    printf(\"hello\\n\");\n    fork();\n    printf(\"hello\\n\");\n    fork();\n    printf(\"hello\\n\");\n    fork();\n    printf(\"hello\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q3  printf(\"A\") then fork", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    printf(\"A\");\n    fork();\n    printf(\"P\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q4  fork() && fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork() && fork();\n    printf(\"Able to\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q5  fork(); fork() && fork(); fork();", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() && fork();\n    fork();\n    printf(\"Got!!!\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q6  fork() + fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() + fork();\n    fork();\n    printf(\"doing!\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q7  fork() || fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() || fork();\n    fork();\n    printf(\"Really!!!\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q8  fork() && fork() || fork()", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork();\n    fork() && fork() || fork();\n    fork();\n    printf(\"guess\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q9  && then ||", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    fork() && fork();\n    fork() || fork();\n    printf(\"Hi\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q10 if (pid) ... else ...", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    int pid, pid2;\n    pid = fork();\n    if (pid) {\n        pid2 = fork();\n        printf(\"I\\n\");\n    }\n    else {\n        printf(\"C\\n\");\n        pid2 = fork();\n    }\n    return 0;\n}\n", "args": ""}, {"name": "Q11 fork in a for loop", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    pid_t childpid;\n    int i, n = 3;\n    for (i = 1; i < n; i++) {\n        childpid = fork();\n        if (childpid == -1)\n            break;\n    }\n    printf(\"i:%d\\n\", i);\n    return 0;\n}\n", "args": ""}, {"name": "Q12 x = add(fork(), fork())", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\npid_t add(pid_t a, pid_t b) {\n    return a + b;\n}\nint main(void) {\n    pid_t x = 10;\n    printf(\"%d\\n\", x);\n    x = add(fork(), fork());\n    printf(\"%d\\n\", x);\n    return 0;\n}\n", "args": ""}, {"name": "Q13 fork() inside an array initializer", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    int x[] = {10, 20, fork(), fork() + fork()};\n    int len = sizeof(x) / sizeof(int);\n    for (int i = 0; i < len; i++)\n        fprintf(stderr, \" %d \", x[i]);\n    printf(\"\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q14 if (fork()==0) in a function", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid show() {\n    if (fork() == 0)\n        printf(\"1\\n\");\n    if (fork() == 0)\n        printf(\"2\\n\");\n    if (fork() == 0)\n        printf(\"3\\n\");\n}\nint main(void) {\n    show();\n    return 0;\n}\n", "args": ""}, {"name": "Q15 else-if chain (fan)", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    if (fork() == 0)\n        printf(\"1\\n\");\n    else if (fork() == 0)\n        printf(\"2\\n\");\n    else if (fork() == 0)\n        printf(\"3\\n\");\n    else if (fork() == 0)\n        printf(\"4\\n\");\n    else\n        printf(\"5\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q16 p1 / p2 conditions", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    pid_t p1, p2;\n    p2 = 0;\n    p1 = fork();\n    if (p1 == 0)\n        p2 = fork();\n    if (p2 > 0)\n        fork();\n    printf(\"done\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q17 direct children of main", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    pid_t c1 = 1, c2 = 1;\n    c1 = fork();\n    if (c1 != 0)\n        c2 = fork();\n    if (c2 == 0) {\n        fork();\n        printf(\"1\\n\");\n    }\n    return 0;\n}\n", "args": ""}, {"name": "Q18 struct copy after fork", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nstruct stud {\n    int r;\n    int m;\n};\nint main() {\n    struct stud s1 = {1, 20};\n    pid_t pid = fork();\n    if (pid == 0) {\n        struct stud s1 = {2, 30};\n        printf(\"%d %d\\n\", s1.r, s1.m);\n        return 0;\n    }\n    else {\n        sleep(10);\n        printf(\"%d %d\\n\", s1.r, s1.m);\n        return 0;\n    }\n}\n", "args": ""}, {"name": "Q19 S / T / D / A", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    if (fork()) {\n        if (!fork()) {\n            fork();\n            printf(\"S \");\n        }\n        else {\n            printf(\"T \");\n        }\n    }\n    else {\n        printf(\"D \");\n    }\n    printf(\"A \");\n    return 0;\n}\n", "args": ""}, {"name": "Q20 fork when i % 3 == 0", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    int i;\n    for (i = 0; i < 12; i++) {\n        if (i % 3 == 0) {\n            fork();\n        }\n    }\n    printf(\"p\\n\");\n    return 0;\n}\n", "args": ""}, {"name": "Q21 x = 5 + a[fork() || fork()]", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main() {\n    int x;\n    int a[2] = {10, 20};\n    x = 5 + a[fork() || fork()];\n    printf(\"%d\\n\", x);\n    return 0;\n}\n", "args": ""}, {"name": "Q22 atexit order", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid X(void) { printf(\"1\\n\"); }\nvoid Y(void) { printf(\"2\\n\"); }\nvoid P(void) { printf(\"3\\n\"); }\nvoid Q(void) { printf(\"4\\n\"); }\nint main(void) {\n    atexit(X);\n    atexit(Y);\n    atexit(P);\n    atexit(Q);\n    return 0;\n}\n", "args": ""}, {"name": "Q25 build a given process tree", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid show(const char *name, pid_t ret) {\n    printf(\"%-3s PID=%d PPID=%d fork() returned %d\\n\", name, getpid(), getppid(), ret);\n}\nint main(void) {\n    pid_t r;\n    setvbuf(stdout, NULL, _IONBF, 0);      /* unbuffered: no duplicate lines */\n    printf(\"P   PID=%d PPID=%d (root, not created by fork here)\\n\", getpid(), getppid());\n    if ((r = fork()) == 0) { show(\"C1\", r); return 0; }\n    if ((r = fork()) == 0) {               /* C2: has two children */\n        show(\"C2\", r);\n        if ((r = fork()) == 0) { show(\"C4\", r); return 0; }\n        if ((r = fork()) == 0) {           /* C5 -> C6 -> C7 chain */\n            show(\"C5\", r);\n            if ((r = fork()) == 0) {\n                show(\"C6\", r);\n                if ((r = fork()) == 0) { show(\"C7\", r); return 0; }\n                wait(NULL); return 0;\n            }\n            wait(NULL); return 0;\n        }\n        while (wait(NULL) > 0) ;\n        return 0;\n    }\n    if ((r = fork()) == 0) { show(\"C3\", r); return 0; }\n    while (wait(NULL) > 0);                /* parent waits for all: no orphan */\n    return 0;\n}\n", "args": ""}, {"name": "Q26 Figure (a) and Figure (b)", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nvoid info(void) { printf(\"PID=%d PPID=%d\\n\", getpid(), getppid()); }\n\n/* Figure (a): P -> A -> B; B has 3 children; the middle child has 1 child */\nvoid figure_a(void) {\n    info();                                   /* P */\n    if (fork() != 0) { wait(NULL); return; }\n    info();                                   /* A */\n    if (fork() != 0) { wait(NULL); return; }\n    info();                                   /* B */\n    for (int i = 0; i < 3; i++) {\n        if (fork() == 0) {\n            info();                           /* child i of B */\n            if (i == 1 && fork() == 0) { info(); return; }   /* grandchild */\n            wait(NULL);\n            return;\n        }\n    }\n    while (wait(NULL) > 0);\n}\n\n/* Figure (b): every node in the left column has a down child and a right leaf, 4 levels */\nvoid figure_b(void) {\n    info();                                   /* top node */\n    for (int level = 0; level < 4; level++) {\n        if (fork() == 0) { info(); return; }  /* right leaf */\n        if (fork() != 0) {                    /* parent waits, stops */\n            while (wait(NULL) > 0);\n            return;\n        }\n        info();                               /* down child continues */\n    }\n}\n\nint main(void) {\n    setvbuf(stdout, NULL, _IONBF, 0);     /* unbuffered output */\n    printf(\"--- Figure (a) ---\\n\");\n    if (fork() == 0) { figure_a(); return 0; }\n    wait(NULL);\n    printf(\"--- Figure (b) ---\\n\");\n    if (fork() == 0) { figure_b(); return 0; }\n    wait(NULL);\n    return 0;\n}\n", "args": ""}, {"name": "Q27 child changes its copy of nums", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\n#define SIZE 5\nint nums[SIZE] = {0, 1, 2, 3, 4};\nint main() {\n    int i;\n    pid_t pid;\n    pid = fork();\n    if (pid == 0) {\n        for (i = 0; i < SIZE; i++) {\n            nums[i] *= nums[i] * -i;\n            printf(\"CHILD:%d \", nums[i]); /* LINE X */\n        }\n    }\n    else if (pid > 0) {\n        wait(NULL);\n        for (i = 0; i < SIZE; i++)\n            printf(\"PARENT: %d \", nums[i]); /* LINE Y */\n    }\n    return 0;\n}\n", "args": ""}, {"name": "Q28 Fibonacci in the child (argument 7)", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(int argc, char *argv[]) {\n    if (argc != 2) { fprintf(stderr, \"Usage: %s n\\n\", argv[0]); return 1; }\n    int n = atoi(argv[1]);\n    if (n <= 0) { fprintf(stderr, \"n must be positive\\n\"); return 1; }\n    pid_t pid = fork();\n    if (pid < 0) { perror(\"fork\"); return 1; }\n    if (pid == 0) {                       /* child generates the sequence */\n        long a = 0, b = 1, t;\n        for (int i = 0; i < n; i++) {\n            printf(\"%ld \", a);\n            t = a + b; a = b; b = t;\n        }\n        printf(\"\\n\");\n        exit(0);\n    }\n    wait(NULL);                           /* parent waits for child */\n    printf(\"Child finished.\\n\");\n    return 0;\n}\n", "args": "7"}, {"name": "Q29 fork + execl + wait", "code": "#include <stdio.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    int status;\n    pid_t pid = fork();\n    if (pid < 0) { perror(\"fork\"); return 1; }\n    if (pid == 0) {\n        /* compile first: gcc MulThree.c -o MulThree */\n        execl(\"./MulThree\", \"MulThree\", \"2\", \"3\", \"4\", (char *)NULL);\n        perror(\"execl\");                  /* reached only if execl fails */\n        exit(1);\n    }\n    pid_t done = wait(&status);\n    if (WIFEXITED(status))\n        printf(\"Child PID = %d, exit status = %d\\n\", done, WEXITSTATUS(status));\n    return 0;\n}\n", "args": ""}];
+const DPOS_PROMPT = 'Trace the following program segment and determine how many processes are created. Draw a process tree that shows how the processes are related. Try it on paper first, then press Step through to check each fork().';
+const DPOS_HEAD = '#include <stdio.h>\n#include <unistd.h>\n#include <sys/types.h>\n\n';
+const DPOS_Q5 = [
+  { part: 'a', code: `int main()
+{
+    pid_t p;
+    p = fork();
+    if (p == 0)
+        fork();
+    else
+        fork();
+    printf("1");
+    return 0;
+}
+` },
+  { part: 'b', code: `int main()
+{
+    int x = 5;
+    fork();
+    if (x == 5)
+        fork();
+    fork();
+    printf("1");
+    return 0;
+}
+` },
+  { part: 'c', code: `int main()
+{
+    pid_t c1 = 1, c2 = 1;
+    c1 = fork();
+    if (c1 != 0)
+        c2 = fork();
+    if (c2 == 0)
+        fork();
+    printf(" 1");
+    return 0;
+}
+` },
+  { part: 'd', code: `int main()
+{
+    pid_t c1, c2;
+    c1 = fork();
+    if (c1 != 0)
+    {
+        c2 = fork();
+        if (c2 == 0)
+            fork();
+    }
+    if (c1 == 0)
+        fork();
+    printf("1");
+    return 0;
+}
+` },
+  { part: 'e', code: `int main()
+{
+    if (fork() && fork())
+        fork();
+    printf("1");
+    return 0;
+}
+` },
+  { part: 'f', code: `int main()
+{
+    if (fork() == 0 || fork() == 0)
+        fork();
+    printf("1");
+    return 0;
+}
+` },
+];
+const MINE_TEMPLATE = '#include <stdio.h>\n#include <unistd.h>\n#include <sys/wait.h>\n\nint main(void) {\n    fork();\n    printf("hello from %d\\n", getpid());\n    return 0;\n}\n';
+
+const SECTIONS = {
+  ppwc: {
+    name: 'PPWC', head: 'PPWC · Assignment 06', pick: 'CSE 3544 · Processes in UNIX',
+    questions: EXAMPLES.map(e => {
+      const m = e.name.match(/^Q(\d+)\s+(.*)$/);
+      return { id: m[1], chip: 'Q' + m[1], title: 'Q' + m[1] + ' · ' + m[2], prompt: 'Predict the output and the process tree, then Run it or Step through it to check.', code: e.code, args: e.args || '' };
+    })
+  },
+  dpos: {
+    name: 'DPOS', head: 'DPOS · Theory Assignment 1', pick: 'CSE 3249 · Q5, process creation using fork()',
+    questions: DPOS_Q5.map(q => ({ id: '5' + q.part, chip: '5' + q.part, title: 'Q5 (' + q.part + ')', prompt: DPOS_PROMPT, code: DPOS_HEAD + q.code, args: '' }))
+  },
+  mine: { name: 'My Code', head: 'My code' }
+};
+
 const $ = id => document.getElementById(id);
 const codeEl = $('code'), gutter = $('gutter');
-let bufMode = 'line', view = 'all', selected = null, last = null, badLine = null;
+let bufMode = 'line', view = 'all', selected = null, last = null, badLine = null, byPid = new Map();
+let route = null, dbg = null;
+const edits = {};   // changes to course questions, kept for this visit only
+const lastQ = {};   // last question opened in each section
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+let mineCode = load('forklab.code');
 
-EXAMPLES.forEach((e, i) => { const o = document.createElement('option'); o.value = i; o.textContent = e.name; $('ex').appendChild(o); });
-const custom = document.createElement('option'); custom.value = 'mine'; custom.textContent = 'My code'; $('ex').appendChild(custom);
+/* ---------------- Sections and questions ---------------- */
+function parseHash(h) {
+  const m = (h || '').replace(/^#\/?/, '').split('/');
+  if (!SECTIONS[m[0]]) return null;
+  if (m[0] === 'mine') return { sec: 'mine' };
+  const qs = SECTIONS[m[0]].questions;
+  const q = qs.find(x => x.id === m[1]) || qs.find(x => x.id === lastQ[m[0]]) || qs[0];
+  return { sec: m[0], q: q.id };
+}
+const hashOf = r => '#' + r.sec + (r.q ? '/' + r.q : '');
+const currentQ = () => route.sec === 'mine' ? null : SECTIONS[route.sec].questions.find(x => x.id === route.q);
+const editKey = () => route.sec + '/' + route.q;
 
+function openRoute(r) {
+  stopDebug();
+  route = r;
+  if (r.q) lastQ[r.sec] = r.q;
+  store('forklab.route', hashOf(r));
+  const sec = SECTIONS[r.sec], q = currentQ();
+  Object.keys(SECTIONS).forEach(k => { if (k === r.sec) $('nav-' + k).setAttribute('aria-current', 'page'); else $('nav-' + k).removeAttribute('aria-current'); });
+  $('qpick').hidden = !q;
+  $('q-copy').hidden = !q;
+  if (q) {
+    $('ptitle').textContent = sec.head;
+    $('qlabel').textContent = sec.pick;
+    $('qchips').innerHTML = sec.questions.map(x => '<a href="#' + r.sec + '/' + x.id + '" title="' + esc(x.title) + '"' + (x.id === q.id ? ' aria-current="true"' : '') + '>' + x.chip + '</a>').join('');
+    $('qtitle').textContent = q.title;
+    $('qprompt').textContent = q.prompt;
+    codeEl.value = edits[editKey()] !== undefined ? edits[editKey()] : q.code;
+    $('args').value = q.args;
+  } else {
+    $('ptitle').textContent = sec.head;
+    $('qtitle').textContent = 'My code';
+    $('qprompt').textContent = 'Write or paste any C program that uses fork(). It is saved in this browser as you type.';
+    codeEl.value = mineCode && mineCode.trim() ? mineCode : MINE_TEMPLATE;
+    $('args').value = load('forklab.args') || '';
+  }
+  resetCopy();
+  showEdited();
+  badLine = null; codeEl.scrollTop = 0; updateGutter();
+  run();
+}
+function showEdited() {
+  const ed = route.sec !== 'mine' && edits[editKey()] !== undefined;
+  $('qedited').hidden = !ed; $('q-reset').hidden = !ed;
+}
+$('q-reset').onclick = () => { delete edits[editKey()]; openRoute(route); };
+// copying over saved code takes a second click, so nobody loses their own program by accident
+let copyArmed = null;
+function resetCopy() { clearTimeout(copyArmed); copyArmed = null; $('q-copy').textContent = 'Open in My Code'; $('q-copy').classList.remove('warn'); }
+$('q-copy').onclick = () => {
+  const saved = mineCode && mineCode.trim() && mineCode !== MINE_TEMPLATE && mineCode !== codeEl.value;
+  if (saved && !copyArmed) { $('q-copy').textContent = 'Replace your saved code?'; $('q-copy').classList.add('warn'); copyArmed = setTimeout(resetCopy, 4000); return; }
+  mineCode = codeEl.value; store('forklab.code', mineCode); store('forklab.args', $('args').value);
+  location.hash = '#mine';
+};
+window.addEventListener('hashchange', () => { const r = parseHash(location.hash); if (r && hashOf(r) !== hashOf(route)) openRoute(r); });
+
+/* ---------------- Editor ---------------- */
 function updateGutter() {
   const n = codeEl.value.split('\n').length;
   let s = '';
@@ -1572,9 +1861,20 @@ function updateGutter() {
   gutter.innerHTML = s;
   gutter.scrollTop = codeEl.scrollTop;
 }
-codeEl.addEventListener('scroll', () => { gutter.scrollTop = codeEl.scrollTop; });
-codeEl.addEventListener('input', () => { badLine = null; updateGutter(); $('ex').value = 'mine'; store('forklab.code', codeEl.value); });
+codeEl.addEventListener('scroll', () => { gutter.scrollTop = codeEl.scrollTop; renderHL(false); });
+codeEl.addEventListener('input', () => {
+  badLine = null; updateGutter();
+  if (route.sec === 'mine') { mineCode = codeEl.value; store('forklab.code', mineCode); return; }
+  if (codeEl.value === currentQ().code) delete edits[editKey()]; else edits[editKey()] = codeEl.value;
+  showEdited();
+});
+$('args').addEventListener('input', () => { if (route.sec === 'mine') store('forklab.args', $('args').value); });
 codeEl.addEventListener('keydown', e => {
+  if (codeEl.readOnly) {
+    // typing while stepping leaves step mode so the code can be edited
+    if (e.key.length === 1 && e.key !== ' ' && !e.ctrlKey && !e.metaKey && !e.altKey || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Enter' && !e.ctrlKey && !e.metaKey) stopDebug();
+    else return;
+  }
   if (e.key === 'Tab') {
     e.preventDefault();
     const s = codeEl.selectionStart, en = codeEl.selectionEnd;
@@ -1588,12 +1888,6 @@ codeEl.addEventListener('keydown', e => {
     e.preventDefault(); codeEl.setRangeText('\n' + indent + extra, s, codeEl.selectionEnd, 'end'); codeEl.dispatchEvent(new Event('input'));
   }
 });
-$('ex').addEventListener('change', () => {
-  const v = $('ex').value;
-  if (v === 'mine') { const c = load('forklab.code'); if (c) codeEl.value = c; }
-  else { codeEl.value = EXAMPLES[+v].code; $('args').value = EXAMPLES[+v].args || ''; }
-  badLine = null; updateGutter(); run();
-});
 function setMode(m) {
   bufMode = m;
   $('bm-line').setAttribute('aria-pressed', m === 'line');
@@ -1601,18 +1895,20 @@ function setMode(m) {
   $('bmnote').innerHTML = m === 'line'
     ? 'Terminal: printf output is flushed at every newline, like running <code>./a.out</code> directly.'
     : 'File / pipe: printf output stays in a 4 KB buffer until exit, like <code>./a.out &gt; out.txt</code>. Text still in the buffer at fork() gets printed twice.';
-  run();
+  if (dbg) startDebug(); else run();
 }
 $('bm-line').onclick = () => setMode('line');
 $('bm-full').onclick = () => setMode('full');
 $('run').onclick = run;
+$('debug').onclick = startDebug;
 $('tab-all').onclick = () => { view = 'all'; $('tab-all').setAttribute('aria-selected', true); $('tab-plain').setAttribute('aria-selected', false); renderTerm(); };
 $('tab-plain').onclick = () => { view = 'plain'; $('tab-plain').setAttribute('aria-selected', true); $('tab-all').setAttribute('aria-selected', false); renderTerm(); };
 
 const PCOL = n => 'var(--p' + (n % 8) + ')';
-const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-function run() {
+function run() { stopDebug(); compute(); }
+function compute() {
   badLine = null;
   $('errbox').hidden = true;
   let res;
@@ -1627,6 +1923,8 @@ function run() {
     return;
   }
   last = res; selected = null;
+  res.procs.forEach((p, i) => p.ci = i);
+  byPid = new Map(res.procs.map(p => [p.pid, p]));
   const errs = res.procs.filter(p => p.result && p.result.error);
   const msgs = [];
   if (errs.length) {
@@ -1641,21 +1939,220 @@ function run() {
   render();
 }
 
+/* ---------------- Step debugger ---------------- */
+// One step = one statement, fork(), wait() return or exit in one process, in the same order the Output panel uses.
+const STEP_KINDS = new Set(['stmt', 'fork', 'wait', 'exit']);
+
+function startDebug() {
+  stopDebug();
+  compute();
+  if (!last) return;
+  if (last.traceCut) {
+    $('errbox').innerHTML = '<b>Too long to step through.</b> This program runs more than 20,000 steps across its processes. Use Run to see the result.';
+    $('errbox').hidden = false;
+    return;
+  }
+  const steps = [];
+  last.timeline.forEach((t, i) => { t.ti = i; if (STEP_KINDS.has(t.kind)) steps.push(t); });
+  dbg = { steps, cur: 0, st: null, timer: null };
+  document.body.classList.add('debugging'); $('editor').classList.add('debugging');
+  codeEl.readOnly = true;
+  $('dbg').hidden = false; $('debug').hidden = true;
+  $('d-slider').max = steps.length;
+  $('th-exit').textContent = 'State';
+  go(0);
+  $('d-step').focus({ preventScroll: true });
+}
+function stopDebug() {
+  if (!dbg) return;
+  pause();
+  dbg = null;
+  document.body.classList.remove('debugging'); $('editor').classList.remove('debugging');
+  codeEl.readOnly = false;
+  $('dbg').hidden = true; $('debug').hidden = false;
+  $('th-exit').textContent = 'Exit';
+  renderHL(false);
+  if (last) render();
+}
+function go(n) {
+  if (!dbg) return;
+  n = Math.max(0, Math.min(dbg.steps.length, n));
+  dbg.cur = n;
+  dbg.st = stateAt(n);
+  $('d-slider').value = n;
+  renderDebugBar();
+  render();
+  renderHL(true);
+  if (n >= dbg.steps.length) pause();
+}
+// Replays the timeline up to position n (0 = program start, n = steps[n-1] has just run, with its output).
+function stateAt(n) {
+  const tl = last.timeline, steps = dbg.steps, step = n ? steps[n - 1] : null;
+  const upto = n < steps.length ? steps[n].ti - 1 : tl.length - 1;
+  const st = { step, born: new Set([last.root.pid]), done: new Map(), line: new Map(), buf: new Map(), waiting: new Set(), reaped: new Set(), out: [], bufBefore: '', forks: 0 };
+  for (let i = 0; i <= upto; i++) {
+    const t = tl[i];
+    if (t === step) st.bufBefore = st.buf.get(t.pid) || '';
+    switch (t.kind) {
+      case 'stmt': st.line.set(t.pid, t.line); break;
+      case 'fork':
+        st.line.set(t.pid, t.line); st.forks++;
+        if (t.child) { st.born.add(t.child); st.line.set(t.child, t.line); st.buf.set(t.child, st.buf.get(t.pid) || ''); }
+        break;
+      case 'buf': st.buf.set(t.pid, t.text); break;
+      case 'waitbeg': st.waiting.add(t.pid); break;
+      case 'wait': st.waiting.delete(t.pid); st.line.set(t.pid, t.line); if (t.kid) st.reaped.add(t.kid); break;
+      case 'exit': st.done.set(t.pid, t); st.waiting.delete(t.pid); st.line.delete(t.pid); break;
+      case 'out': st.out.push(t); break;
+    }
+  }
+  return st;
+}
+const forkSteps = () => dbg.steps.reduce((a, t, i) => (t.kind === 'fork' && a.push(i), a), []);
+function nextFork() { const i = forkSteps().find(i => i >= dbg.cur); go(i === undefined ? dbg.steps.length : i + 1); }
+function prevFork() { const i = forkSteps().filter(i => i < dbg.cur - 1).pop(); go(i === undefined ? 0 : i + 1); }
+function play() {
+  if (!dbg || dbg.timer) return;
+  if (dbg.cur >= dbg.steps.length) go(0);
+  dbg.timer = setInterval(() => go(dbg.cur + 1), +$('d-speed').value);
+  renderDebugBar();
+}
+function pause() { if (dbg && dbg.timer) { clearInterval(dbg.timer); dbg.timer = null; renderDebugBar(); } }
+const togglePlay = () => dbg && (dbg.timer ? pause() : play());
+$('d-start').onclick = () => { pause(); go(0); };
+$('d-back').onclick = () => { pause(); go(dbg.cur - 1); };
+$('d-step').onclick = () => { pause(); go(dbg.cur + 1); };
+$('d-fork').onclick = () => { pause(); nextFork(); };
+$('d-play').onclick = togglePlay;
+$('d-stop').onclick = stopDebug;
+$('d-speed').onchange = () => { if (dbg && dbg.timer) { pause(); play(); } };
+$('d-slider').oninput = () => { pause(); go(+$('d-slider').value); };
+document.addEventListener('keydown', e => {
+  if (!dbg || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target, tag = t.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' && !t.readOnly) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); pause(); e.shiftKey ? nextFork() : go(dbg.cur + 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); pause(); e.shiftKey ? prevFork() : go(dbg.cur - 1); }
+  else if (e.key === 'Home') { e.preventDefault(); pause(); go(0); }
+  else if (e.key === 'End') { e.preventDefault(); pause(); go(dbg.steps.length); }
+  else if (e.key === ' ' && tag !== 'BUTTON' && tag !== 'A') { e.preventDefault(); togglePlay(); }
+  else if (e.key === 'Escape') stopDebug();
+});
+
+const isRoot = pid => pid === last.root.pid;
+const pidTag = pid => '<b class="pid" style="color:' + PCOL(byPid.get(pid).ci) + '">' + (isRoot(pid) ? 'main' : pid) + '</b>';
+const lineText = n => { const s = (codeEl.value.split('\n')[n - 1] || '').trim(); return s.length > 70 ? s.slice(0, 67) + '…' : s; };
+const cstr = s => '"' + s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/"/g, '\\"') + '"';
+
+function caption() {
+  const st = dbg.st, t = st.step;
+  if (!t) return pidTag(last.root.pid) + ' (PID ' + last.root.pid + ') is the only process. Press <b>Step</b> (→) to run one line, or <b>Next fork</b> (Shift + →) to jump to the next fork().';
+  const who = isRoot(t.pid) ? pidTag(t.pid) : 'Process ' + pidTag(t.pid);
+  const parent = byPid.get(t.pid).parentPid;
+  if (t.kind === 'stmt') {
+    let s = who + ' runs line ' + t.line + ': <code>' + esc(lineText(t.line)) + '</code>';
+    const buf = st.buf.get(t.pid) || '';
+    if (buf && buf !== st.bufBefore) s += '<br><span class="muted">Not on screen yet: its stdout buffer now holds</span> <code>' + esc(cstr(buf)) + '</code>';
+    return s;
+  }
+  if (t.kind === 'fork') {
+    if (!t.child) return who + ' calls <code>fork()</code> on line ' + t.line + ', but it fails and returns <b>-1</b>: the process limit was reached.';
+    let s = who + ' calls <code>fork()</code> on line ' + t.line + ' and creates process ' + pidTag(t.child) + '. fork() returns <b>' + t.child + '</b> in the parent and <b>0</b> in the child; both carry on from here.';
+    const buf = st.buf.get(t.pid) || '';
+    if (buf) s += '<br><span class="muted">The child also gets a copy of the unflushed buffer</span> <code>' + esc(cstr(buf)) + '</code><span class="muted">, so that text will be printed twice.</span>';
+    return s;
+  }
+  if (t.kind === 'wait') return t.kid
+    ? who + '’s <code>wait()</code> on line ' + t.line + ' returns <b>' + t.kid + '</b>: child ' + pidTag(t.kid) + ' has exited and is now reaped.'
+    : who + '’s <code>wait()</code> on line ' + t.line + ' returns <b>-1</b>: it has no children left to wait for.';
+  if (t.error) return who + ' stops' + (t.line ? ' on line ' + t.line : '') + ': ' + esc(t.error);
+  let s = who + (t.code === null ? ' is stopped (it never finishes).' : ' exits with status ' + t.code + '.');
+  if (parent !== null && !st.done.has(parent) && t.code !== null) s += ' <span class="muted">Until its parent calls wait(), it is a zombie.</span>';
+  else if (parent !== null && st.done.has(parent)) s += ' <span class="muted">Its parent had already exited, so it was an orphan.</span>';
+  return s;
+}
+function renderDebugBar() {
+  const n = dbg.cur, len = dbg.steps.length, fs = forkSteps();
+  $('d-pos').textContent = n === 0 ? 'Start · ' + len + ' steps' : n >= len ? 'End · step ' + len + ' of ' + len : 'Step ' + n + ' of ' + len;
+  $('d-forks').textContent = 'fork() calls: ' + (dbg.st ? dbg.st.forks : 0) + ' of ' + fs.length;
+  $('d-start').disabled = $('d-back').disabled = n === 0;
+  $('d-step').disabled = n >= len;
+  $('d-fork').disabled = !fs.some(i => i >= n);
+  $('d-play').innerHTML = dbg.timer
+    ? '<svg viewBox="0 0 16 16"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg>Pause'
+    : '<svg viewBox="0 0 16 16"><path d="M4 2v12l10-6z"/></svg>' + (n >= len ? 'Replay' : 'Play');
+  if (dbg.st) $('d-cap').innerHTML = caption();
+}
+
+let measureCtx = null;
+function charWidth(cs) {
+  measureCtx = measureCtx || document.createElement('canvas').getContext('2d');
+  measureCtx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+  return measureCtx.measureText('0000000000').width / 10;
+}
+// visual column of character index i, with tabs expanded to tab-size 4
+function vcol(text, i) { let c = 0; for (let j = 0; j < i; j++) c = text[j] === '\t' ? c + 4 - c % 4 : c + 1; return c; }
+// Draws, behind the code: the line the current process just ran, the fork() call being made, and where every process is.
+function renderHL(follow) {
+  const hl = $('hl');
+  if (!dbg || !dbg.st) { hl.innerHTML = ''; return; }
+  const st = dbg.st, t = st.step, cs = getComputedStyle(codeEl);
+  const lh = parseFloat(cs.lineHeight), pt = parseFloat(cs.paddingTop), pl = parseFloat(cs.paddingLeft);
+  const active = t && t.kind !== 'exit' ? t.line : null;
+  if (follow && active) {
+    const y = pt + (active - 1) * lh;
+    if (y < codeEl.scrollTop + lh || y > codeEl.scrollTop + codeEl.clientHeight - 2 * lh) codeEl.scrollTop = Math.max(0, y - codeEl.clientHeight / 3);
+  }
+  const top = l => pt + (l - 1) * lh - codeEl.scrollTop;
+  const col = pid => PCOL(byPid.get(pid).ci);
+  let h = '';
+  if (active) h += '<div class="ln" style="top:' + top(active) + 'px;height:' + lh + 'px;--c:' + col(t.pid) + '"></div>';
+  if (t && t.kind === 'fork' && t.col && t.endCol) {
+    const text = codeEl.value.split('\n')[t.line - 1] || '', cw = charWidth(cs);
+    const x1 = pl + vcol(text, t.col - 1) * cw - codeEl.scrollLeft, x2 = pl + vcol(text, t.endCol - 1) * cw - codeEl.scrollLeft;
+    h += '<div class="call" style="left:' + (x1 - 2) + 'px;width:' + (x2 - x1 + 4) + 'px;top:' + (top(t.line) + 1) + 'px;height:' + (lh - 2) + 'px;--c:' + col(t.pid) + '"></div>';
+  }
+  const at = new Map();
+  st.line.forEach((l, pid) => { if (!at.has(l)) at.set(l, []); at.get(l).push(pid); });
+  const cw = charWidth(cs), lines = codeEl.value.split('\n');
+  at.forEach((pids, l) => {
+    if (t) pids.sort((a, b) => (b === t.pid) - (a === t.pid) || a - b);
+    const text = (lines[l - 1] || '').replace(/\s+$/, '');
+    h += '<div class="tags" style="top:' + top(l) + 'px;height:' + lh + 'px;left:' + (pl + (vcol(text, text.length) + 2) * cw - codeEl.scrollLeft) + 'px">' +
+      pids.slice(0, 4).map(pid => '<span class="pt' + (t && pid === t.pid ? ' on' : '') + '" style="--c:' + col(pid) + '">' + (isRoot(pid) ? 'main' : pid) + '</span>').join('') +
+      (pids.length > 4 ? '<span class="pt" style="--c:var(--code-muted)">+' + (pids.length - 4) + '</span>' : '') + '</div>';
+  });
+  hl.innerHTML = h;
+}
+window.addEventListener('resize', () => renderHL(false));
+if (document.fonts) document.fonts.ready.then(() => renderHL(false));
+
+/* ---------------- Panels ---------------- */
+const shownEvents = () => dbg && dbg.st ? dbg.st.out : last.events;
+const shownProcs = () => dbg && dbg.st ? last.procs.filter(p => dbg.st.born.has(p.pid)) : last.procs;
+// in step mode zombie/orphan describe the moment shown, not the whole run
+function procFlags(p) {
+  if (!dbg || !dbg.st) return { zombie: p.zombie, orphan: p.orphan, done: true };
+  const st = dbg.st, me = st.done.get(p.pid), par = p.parentPid === null ? null : st.done.get(p.parentPid);
+  return {
+    done: !!me,
+    zombie: !!me && p.parentPid !== null && !par && !st.reaped.has(p.pid),
+    orphan: !!par && (!me || par.ti < me.ti),
+  };
+}
+
 function renderEmpty() {
   ['s-procs', 's-forks', 's-kids', 's-lines'].forEach(id => $(id).textContent = '–');
   $('tree').innerHTML = ''; $('term').textContent = ''; $('counts').innerHTML = ''; $('ptable').innerHTML = '';
 }
 
 function render() {
-  const r = last;
-  const idx = new Map(r.procs.map((p, i) => [p.pid, i]));
-  r.procs.forEach((p, i) => p.ci = i);
-  const text = r.events.map(e => e.text).join('');
-  const stdoutLines = r.events.filter(e => e.stream !== 'note').map(e => e.text).join('');
+  const r = last, procs = shownProcs();
+  const stdoutLines = shownEvents().filter(e => e.stream !== 'note').map(e => e.text).join('');
   const lineCount = (stdoutLines.match(/\n/g) || []).length;
-  $('s-procs').textContent = r.procs.length;
-  $('s-forks').textContent = r.procs.length - 1;
-  $('s-kids').textContent = r.root.children.length;
+  $('s-procs').textContent = procs.length;
+  $('s-forks').textContent = procs.length - 1;
+  $('s-kids').textContent = r.root.children.filter(c => procs.some(p => p.pid === c)).length;
   $('s-lines').textContent = lineCount;
   renderTree();
   renderTerm();
@@ -1667,7 +2164,7 @@ function renderCounts(all) {
   const m = new Map();
   all.split('\n').forEach((l, i, arr) => { if (i === arr.length - 1 && l === '') return; m.set(l, (m.get(l) || 0) + 1); });
   const box = $('counts'); box.innerHTML = '';
-  if (!m.size) { box.innerHTML = '<span class="note">Nothing was printed.</span>'; return; }
+  if (!m.size) { box.innerHTML = '<span class="note">Nothing was printed' + (dbg ? ' yet' : '') + '.</span>'; return; }
   [...m.entries()].slice(0, 40).forEach(([l, c]) => {
     const s = document.createElement('span'); s.className = 'chip';
     s.innerHTML = esc(l === '' ? '(empty line)' : l) + '  <b>×' + c + '</b>';
@@ -1678,21 +2175,22 @@ function renderCounts(all) {
 function renderTerm() {
   const t = $('term');
   if (!last) { t.textContent = ''; return; }
-  const ev = last.events;
-  if (!ev.length) { t.innerHTML = '<span class="note-ev">(no output)</span>'; return; }
+  const ev = shownEvents();
+  if (!ev.length) { t.innerHTML = '<span class="note-ev">(no output' + (dbg ? ' yet' : '') + ')</span>'; return; }
   if (view === 'plain') { t.textContent = ev.filter(e => e.stream !== 'note').map(e => e.text).join(''); return; }
-  const byPid = new Map(last.procs.map(p => [p.pid, p]));
   t.innerHTML = ev.map(e => {
     const p = byPid.get(e.pid); const col = PCOL(p.ci);
     const dim = selected !== null && selected !== e.pid ? ' dim' : '';
     if (e.stream === 'note') return '<span class="note-ev' + dim + '" title="process ' + e.pid + '">' + esc(e.text) + '</span>';
     return e.text.split(/(\n)/).map(seg => seg === '\n' ? '\n' : seg === '' ? '' : '<span class="ch' + dim + '" style="border-color:' + col + '" title="process ' + e.pid + (e.stream === 'stderr' ? ' (stderr)' : '') + '">' + esc(seg) + '</span>').join('');
   }).join('');
+  if (dbg) t.scrollTop = t.scrollHeight;
 }
 
 function renderTree() {
-  const r = last, byPid = new Map(r.procs.map(p => [p.pid, p]));
+  const r = last, st = dbg && dbg.st, step = st && st.step;
   const pos = new Map(); let leaf = 0, maxDepth = 0;
+  // layout comes from the finished tree, so nodes keep their place while it grows step by step
   (function lay(pid, d) {
     const p = byPid.get(pid); maxDepth = Math.max(maxDepth, d);
     if (!p.children.length) { pos.set(pid, { x: leaf++, y: d }); return; }
@@ -1700,29 +2198,41 @@ function renderTree() {
     const xs = p.children.map(c => pos.get(c).x);
     pos.set(pid, { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: d });
   })(r.root.pid, 0);
-  const DX = 62, DY = 78, R = 19, PADX = 34, PADY = 30;
-  const W = Math.max(leaf, 1) * DX + PADX * 2 - DX + 40, H = maxDepth * DY + PADY * 2 + 26;
+  const DX = 62, DY = st ? 92 : 78, R = 19, PADX = 34, PADY = 30, LAB = st ? 15 : 0;
+  const W = Math.max(leaf, 1) * DX + PADX * 2 - DX + 40, H = maxDepth * DY + PADY * 2 + 26 + LAB;
   const X = pid => PADX + 20 + pos.get(pid).x * DX, Y = pid => PADY + pos.get(pid).y * DY;
-  const linesOf = pid => r.events.filter(e => e.pid === pid && e.stream !== 'note').map(e => e.text).join('').split('\n').length - 1;
-  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Process tree with ' + r.procs.length + ' processes">';
-  svg += '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>';
-  for (const p of r.procs) {
+  const procs = shownProcs();
+  const evs = shownEvents();
+  const linesOf = pid => evs.filter(e => e.pid === pid && e.stream !== 'note').map(e => e.text).join('').split('\n').length - 1;
+  const newKid = step && step.kind === 'fork' ? step.child : null;
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Process tree with ' + procs.length + ' processes">';
+  svg += '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker><marker id="ahn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>';
+  for (const p of procs) {
     if (p.parentPid === null) continue;
-    const x1 = X(p.parentPid), y1 = Y(p.parentPid) + R, x2 = X(p.pid), y2 = Y(p.pid) - R - 3;
-    const dash = p.orphan ? ' stroke-dasharray="5 4"' : '';
-    svg += '<path d="M' + x1 + ',' + y1 + ' C' + x1 + ',' + (y1 + 26) + ' ' + x2 + ',' + (y2 - 26) + ' ' + x2 + ',' + y2 + '" fill="none" stroke="var(--muted)" stroke-width="1.6"' + dash + ' marker-end="url(#ah)"><title>fork() on line ' + (p.forkLine || '?') + '</title></path>';
+    const isNew = p.pid === newKid;
+    const x1 = X(p.parentPid), y1 = Y(p.parentPid) + R + LAB, x2 = X(p.pid), y2 = Y(p.pid) - R - 3;
+    const dash = procFlags(p).orphan ? ' stroke-dasharray="5 4"' : '';
+    svg += '<path class="tedge' + (isNew ? ' new' : '') + '" d="M' + x1 + ',' + y1 + ' C' + x1 + ',' + (y1 + 26) + ' ' + x2 + ',' + (y2 - 26) + ' ' + x2 + ',' + y2 + '" fill="none" stroke="var(--muted)" stroke-width="1.6"' + (isNew ? '' : dash) + ' marker-end="url(#' + (isNew ? 'ahn' : 'ah') + ')"><title>fork() on line ' + (p.forkLine || '?') + '</title></path>';
+    if (isNew) svg += '<text class="tlabel new" x="' + ((x1 + x2) / 2 + (x2 >= x1 ? 6 : -6)) + '" y="' + ((y1 + y2) / 2 + 4) + '" text-anchor="' + (x2 >= x1 ? 'start' : 'end') + '">line ' + p.forkLine + '</text>';
   }
-  for (const p of r.procs) {
-    const x = X(p.pid), y = Y(p.pid), col = PCOL(p.ci);
-    const dim = selected !== null && selected !== p.pid ? ' dim' : '';
+  for (const p of procs) {
+    const x = X(p.pid), y = Y(p.pid), col = PCOL(p.ci), f = procFlags(p);
+    const now = step && step.pid === p.pid;
+    const cls = (selected !== null && selected !== p.pid ? ' dim' : '') + (now ? ' now' : '') + (p.pid === newKid ? ' born' : '') + (st && f.done ? ' done' : '');
     const n = linesOf(p.pid);
-    const tip = 'PID ' + p.pid + (p.parentPid ? ', parent ' + p.parentPid + ', created by fork() on line ' + p.forkLine : ' (main process)') + '\nprinted ' + n + ' line' + (n === 1 ? '' : 's') + (p.zombie ? '\nzombie: exited but never reaped by wait()' : '') + (p.orphan ? '\norphan: its parent exited first' : '');
-    svg += '<g class="tnode' + dim + '" data-pid="' + p.pid + '" tabindex="0" role="button" aria-label="Process ' + p.pid + '"><title>' + esc(tip) + '</title>';
+    const tip = 'PID ' + p.pid + (p.parentPid ? ', parent ' + p.parentPid + ', created by fork() on line ' + p.forkLine : ' (main process)') + '\nprinted ' + n + ' line' + (n === 1 ? '' : 's') + (f.zombie ? '\nzombie: exited but not reaped by wait()' : '') + (f.orphan ? '\norphan: its parent exited first' : '');
+    svg += '<g class="tnode' + cls + '" data-pid="' + p.pid + '" tabindex="0" role="button" aria-label="Process ' + p.pid + '"><title>' + esc(tip) + '</title>';
+    if (now) svg += '<circle class="halo" cx="' + x + '" cy="' + y + '" r="' + (R + 5) + '" stroke="' + col + '"/>';
     svg += '<circle cx="' + x + '" cy="' + y + '" r="' + R + '" fill="var(--panel)" stroke="' + col + '"/>';
     svg += '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)">' + (p.parentPid === null ? 'main' : p.pid) + '</text>';
     svg += '<text x="' + (x + R + 4) + '" y="' + (y + R - 2) + '" text-anchor="start" font-size="11" font-weight="600" fill="' + col + '">' + n + '</text>';
-    if (p.zombie) svg += '<text x="' + (x + R - 2) + '" y="' + (y - R + 6) + '" font-size="12" font-weight="700" fill="var(--warn)">Z</text>';
-    if (p.result && p.result.error) svg += '<text x="' + (x - R - 6) + '" y="' + (y - R + 6) + '" font-size="12" font-weight="700" fill="var(--danger)">!</text>';
+    if (st) {
+      const d = st.done.get(p.pid);
+      const where = d ? (d.error ? 'crashed' : 'exited') : st.waiting.has(p.pid) ? 'wait()' : st.line.has(p.pid) ? 'line ' + st.line.get(p.pid) : 'start';
+      svg += '<text class="tlabel" x="' + x + '" y="' + (y + R + 13) + '" text-anchor="middle"' + (now ? ' fill="' + col + '" font-weight="600"' : '') + '>' + where + '</text>';
+    }
+    if (f.zombie) svg += '<text x="' + (x + R - 2) + '" y="' + (y - R + 6) + '" font-size="12" font-weight="700" fill="var(--warn)">Z</text>';
+    if (p.result && p.result.error && f.done) svg += '<text x="' + (x - R - 6) + '" y="' + (y - R + 6) + '" font-size="12" font-weight="700" fill="var(--danger)">!</text>';
     svg += '</g>';
   }
   svg += '</svg>';
@@ -1730,38 +2240,48 @@ function renderTree() {
   $('tree').querySelectorAll('.tnode').forEach(g => {
     const pick = () => { const pid = +g.dataset.pid; selected = selected === pid ? null : pid; renderTree(); renderTerm(); renderTable(); };
     g.addEventListener('click', pick);
-    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); pick(); } });
   });
-  $('treehint').textContent = selected === null ? 'Click a process to see only its output' : 'Showing process ' + selected + ' · click it again to show all';
+  $('treehint').textContent = selected !== null ? 'Showing process ' + selected + ' · click it again to show all'
+    : st ? 'Thick ring: the process that just ran · dashed ring: exited' : 'Click a process to see only its output';
 }
 
 function renderTable() {
-  const r = last, tb = $('ptable'); tb.innerHTML = '';
-  for (const p of r.procs) {
-    const out = r.events.filter(e => e.pid === p.pid).map(e => e.text).join('');
+  const r = last, tb = $('ptable'), st = dbg && dbg.st, evs = shownEvents(); tb.innerHTML = '';
+  for (const p of shownProcs()) {
+    const out = evs.filter(e => e.pid === p.pid).map(e => e.text).join('');
+    const f = procFlags(p);
     const tr = document.createElement('tr');
     if (selected === p.pid) tr.className = 'sel';
     let badges = '';
-    if (p.zombie) badges += '<span class="badge z">ZOMBIE</span>';
-    if (p.orphan) badges += '<span class="badge o">ORPHAN</span>';
-    if (p.exec) badges += '<span class="badge x">EXEC</span>';
-    if (p.result && p.result.error) badges += '<span class="badge e">ERROR</span>';
-    const exit = !p.result ? '–' : (p.result.exitCode === null ? 'still running' : p.result.error ? 'crashed' : String(p.result.exitCode));
+    if (f.zombie) badges += '<span class="badge z">ZOMBIE</span>';
+    if (f.orphan) badges += '<span class="badge o">ORPHAN</span>';
+    if (p.exec && f.done) badges += '<span class="badge x">EXEC</span>';
+    if (p.result && p.result.error && f.done) badges += '<span class="badge e">ERROR</span>';
+    let last_;
+    if (st) {
+      const d = st.done.get(p.pid);
+      last_ = d ? '<span class="state st-done">' + (d.error ? 'crashed' : d.code === null ? 'stopped' : 'exited (' + d.code + ')') + '</span>'
+        : st.waiting.has(p.pid) ? '<span class="state st-wait">waiting in wait()</span>'
+        : '<span class="state st-run">running' + (st.line.has(p.pid) ? ' · line ' + st.line.get(p.pid) : '') + '</span>';
+    } else last_ = '<span class="mono">' + (!p.result ? '–' : (p.result.exitCode === null ? 'still running' : p.result.error ? 'crashed' : String(p.result.exitCode))) + '</span>';
+    const buf = st && st.buf.get(p.pid);
     tr.innerHTML = '<td class="mono"><span class="dot" style="background:' + PCOL(p.ci) + '"></span>' + (p.parentPid === null ? p.pid + ' (main)' : p.pid) + '</td>' +
       '<td class="mono">' + (p.parentPid === null ? 'shell' : p.parentPid) + '</td>' +
       '<td>' + (p.parentPid === null ? 'program start' : 'fork() on line ' + p.forkLine) + '</td>' +
-      '<td>' + badges + '<div class="out">' + (out ? esc(out.replace(/\n$/, '')) : '<span class="note">nothing</span>') + '</div>' + (p.result && p.result.error ? '<div class="note" style="color:var(--danger)">' + esc(p.result.error) + '</div>' : '') + '</td>' +
-      '<td class="mono">' + exit + '</td>';
+      '<td>' + badges + '<div class="out">' + (out ? esc(out.replace(/\n$/, '')) : '<span class="note">nothing' + (st && !f.done ? ' yet' : '') + '</span>') + '</div>' +
+        (buf ? '<div class="buf" title="printf output still in this process\'s stdout buffer">buffer: ' + esc(cstr(buf)) + '</div>' : '') +
+        (p.result && p.result.error && f.done ? '<div class="note" style="color:var(--danger)">' + esc(p.result.error) + '</div>' : '') + '</td>' +
+      '<td>' + last_ + '</td>';
     tr.onclick = () => { selected = selected === p.pid ? null : p.pid; renderTree(); renderTerm(); renderTable(); };
     tb.appendChild(tr);
   }
 }
 
-// start
-const saved = load('forklab.code');
-codeEl.value = EXAMPLES[0].code;
-$('ex').value = '0';
-if (saved && saved.trim()) { codeEl.value = saved; $('ex').value = 'mine'; }
-updateGutter();
-run();
+// start: the link's section, else the last one visited, else My Code if there is saved code
+const start = parseHash(location.hash) || parseHash(load('forklab.route')) || (mineCode && mineCode.trim() ? { sec: 'mine' } : parseHash('#ppwc'));
+history.replaceState(null, '', hashOf(start));
+openRoute(start);
 </script>
+</body>
+</html>
